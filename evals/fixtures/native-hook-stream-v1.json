@@ -1,0 +1,96 @@
+{
+  "schema": "musubi-codex-native-hook-proof-v1",
+  "events": [
+    {
+      "hook_event_name": "UserPromptSubmit",
+      "session_id": "thr-proof-001",
+      "turn_id": "turn-proof-001",
+      "transcript_path": null,
+      "cwd": "/workspace/proof",
+      "model": "codex-proof",
+      "permission_mode": "default",
+      "prompt": "Write a release note for checksum 7f3c."
+    },
+    {
+      "hook_event_name": "Stop",
+      "session_id": "thr-proof-001",
+      "turn_id": "turn-other",
+      "transcript_path": null,
+      "cwd": "/workspace/proof",
+      "model": "codex-proof",
+      "permission_mode": "default",
+      "stop_hook_active": false,
+      "last_assistant_message": "This is another turn."
+    },
+    {
+      "hook_event_name": "Stop",
+      "session_id": "thr-proof-001",
+      "turn_id": "turn-proof-001",
+      "transcript_path": null,
+      "cwd": "/workspace/proof",
+      "model": "codex-proof",
+      "permission_mode": "default",
+      "stop_hook_active": false,
+      "last_assistant_message": "Release note: checksum 7f3c is verified."
+    },
+    {
+      "hook_event_name": "Stop",
+      "session_id": "thr-proof-001",
+      "turn_id": "turn-proof-001",
+      "transcript_path": null,
+      "cwd": "/workspace/proof",
+      "model": "codex-proof",
+      "permission_mode": "default",
+      "stop_hook_active": false,
+      "last_assistant_message": "Release note: checksum 7f3c is verified."
+    },
+    {
+      "hook_event_name": "UserPromptSubmit",
+      "session_id": "thr-proof-001",
+      "turn_id": "turn-proof-002",
+      "transcript_path": null,
+      "cwd": "/workspace/proof",
+      "model": "codex-proof",
+      "permission_mode": "default",
+      "prompt": "Start a task that will be interrupted."
+    },
+    {
+      "hook_event_name": "Interrupt",
+      "session_id": "thr-proof-001",
+      "turn_id": "turn-proof-002",
+      "transcript_path": null,
+      "cwd": "/workspace/proof",
+      "model": "codex-proof",
+      "permission_mode": "default"
+    },
+    {
+      "hook_event_name": "UserPromptSubmit",
+      "session_id": "thr-proof-001",
+      "turn_id": "turn-proof-003",
+      "transcript_path": null,
+      "cwd": "/workspace/proof",
+      "model": "codex-proof",
+      "permission_mode": "default",
+      "prompt": "This turn has no final message."
+    },
+    {
+      "hook_event_name": "Stop",
+      "session_id": "thr-proof-001",
+      "turn_id": "turn-proof-003",
+      "transcript_path": null,
+      "cwd": "/workspace/proof",
+      "model": "codex-proof",
+      "permission_mode": "default",
+      "stop_hook_active": false,
+      "last_assistant_message": null
+    }
+  ],
+  "expected": {
+    "event_id": "codex:thr-proof-001:turn-proof-001",
+    "user_text": "Write a release note for checksum 7f3c.",
+    "assistant_text": "Release note: checksum 7f3c is verified.",
+    "shadow_event_count": 1,
+    "actor": "proof",
+    "zone": "home"
+  }
+}

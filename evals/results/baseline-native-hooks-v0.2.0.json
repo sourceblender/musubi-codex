@@ -1,0 +1,23 @@
+{
+  "actual_hooks": [
+    "SessionStart",
+    "Stop"
+  ],
+  "fixture_sha256": "0b3acc96a08582cb8d726de5e509a917ad9090f9264372e8c43ac3494d7eaaa9",
+  "frozen_contract_passed": false,
+  "harness_version": "1.0.1",
+  "hook_manifest_sha256": "5719e822c269c5d8affd2e105c2d42db80107fd85ef369a7db0d9ba34ce86290",
+  "missing_hooks": [
+    "Interrupt",
+    "UserPromptSubmit"
+  ],
+  "plugin_version": "0.2.0",
+  "required_hooks": [
+    "Interrupt",
+    "Stop",
+    "UserPromptSubmit"
+  ],
+  "schema": "musubi-codex-native-hook-baseline-v1",
+  "scope": "Synthetic input, isolated shadow config, no Codex host invocation or remote delivery.",
+  "transcript_null_stop_result": "hook_identity_missing"
+}
