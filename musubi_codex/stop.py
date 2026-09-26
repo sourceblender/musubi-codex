@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from musubi_harness import RuntimeConfig
+from musubi_harness import RuntimeConfig, RuntimeConfigError
 
 from .prompt_stage import clear_prompt, read_prompt
 from .runtime import (
@@ -457,6 +457,7 @@ def _record_degraded(reason: str) -> None:
 
 def main() -> int:
     hook: dict[str, Any] | None = None
+    retain_staged_prompt = False
     try:
         payload = json.load(sys.stdin)
         if not isinstance(payload, dict):
@@ -465,6 +466,7 @@ def main() -> int:
         envelope = build_envelope(hook)
         configured = runtime_config()
         db = _data_root() / envelope["actor"] / envelope["zone"] / "shadow.db"
+        retain_staged_prompt = True
         result = subprocess.run(
             [_harness(), "--db", str(db), "enqueue"],
             input=json.dumps(envelope),
@@ -475,6 +477,7 @@ def main() -> int:
         )
         if result.returncode != 0:
             raise AdapterError("shadow_enqueue_failed")
+        retain_staged_prompt = False
         clear_prompt(hook)
         for command, timeout in delivery_commands(envelope, configured):
             result = subprocess.run(
@@ -491,9 +494,16 @@ def main() -> int:
         if hook is not None:
             with suppress(OSError, ValueError):
                 clear_prompt(hook)
-    except (AdapterError, json.JSONDecodeError, OSError, subprocess.SubprocessError) as exc:
-        from musubi_harness import RuntimeConfigError
-
+    except (
+        AdapterError,
+        RuntimeConfigError,
+        json.JSONDecodeError,
+        OSError,
+        subprocess.SubprocessError,
+    ) as exc:
+        if hook is not None and not retain_staged_prompt:
+            with suppress(OSError, ValueError):
+                clear_prompt(hook)
         if isinstance(exc, (RuntimeConfigError, AdapterError)):
             reason = str(exc)
         else:

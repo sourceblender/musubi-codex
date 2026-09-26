@@ -122,3 +122,17 @@ def test_failed_enqueue_keeps_prompt_for_retry(
     assert stop_main() == 0
     assert capsys.readouterr().out == "{}\n"
     assert read_prompt(submitted) == "Do the task"
+
+
+def test_null_final_stop_clears_terminal_prompt(
+    configured: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    submitted = {"session_id": "s", "turn_id": "t", "prompt": "Do the task"}
+    store_prompt(submitted)
+    stopped = {"session_id": "s", "turn_id": "t", "last_assistant_message": None}
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(stopped)))
+    assert stop_main() == 0
+    assert capsys.readouterr().out == "{}\n"
+    assert read_prompt(submitted) is None
+    degraded = (configured / "degraded.jsonl").read_text(encoding="utf-8")
+    assert '"reason": "transcript_unavailable"' in degraded
