@@ -344,27 +344,19 @@ def test_first_mcp_bind_waits_for_missing_locator_only(
     assert sleeps == [0.05, 0.05]
 
 
-def test_mcp_startup_waits_for_hook_locator_before_tool_discovery(
+def test_mcp_discovery_does_not_wait_for_hook_locator(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    home, root, data = _installation(tmp_path)
-    publish_data_root(str(home), str(root), str(data))
+    home, root, _data = _installation(tmp_path)
     monkeypatch.setenv("CODEX_HOME", str(home))
     monkeypatch.delenv("PLUGIN_DATA", raising=False)
     monkeypatch.chdir(root)
     monkeypatch.setattr(runtime, "_mcp_locator_mode", False)
-    attempts = 0
-    real_resolve = runtime_module.resolve_data_root
-
-    def delayed(codex_home: str, plugin_root: str) -> Path:
-        nonlocal attempts
-        attempts += 1
-        if attempts < 3:
-            raise DataLocatorError("plugin_data_locator_unavailable")
-        return real_resolve(codex_home, plugin_root)
-
-    monkeypatch.setattr(runtime_module, "resolve_data_root", delayed)
-    monkeypatch.setattr(runtime_module.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(
+        runtime_module,
+        "resolve_data_root",
+        lambda *_args: pytest.fail("tool discovery must not bind plugin data"),
+    )
     output = io.StringIO()
     assert (
         mcp.serve(
@@ -375,6 +367,4 @@ def test_mcp_startup_waits_for_hook_locator_before_tool_discovery(
         )
         == 0
     )
-    assert attempts == 3
-    assert runtime.data_root() == data
     assert json.loads(output.getvalue())["result"]["tools"]

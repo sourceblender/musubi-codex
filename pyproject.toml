@@ -45,7 +45,7 @@ dev = [
 ]
 
 [project.scripts]
-musubi-codex-mcp = "musubi_codex.mcp_entry:main"
+musubi-codex-mcp = "musubi_codex.mcp:main"
 musubi-codex-session-start = "musubi_codex.session_start:main"
 musubi-codex-user-prompt-submit = "musubi_codex.user_prompt_submit:main"
 musubi-codex-stop = "musubi_codex.stop:main"
