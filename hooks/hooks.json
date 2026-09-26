@@ -17,7 +17,8 @@
           {
             "type": "command",
             "command": "musubi-codex-user-prompt-submit",
-            "timeout": 3
+            "timeout": 5,
+            "additionalContextLimit": 600
           }
         ]
       }
