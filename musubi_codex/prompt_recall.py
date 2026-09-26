@@ -64,7 +64,7 @@ def _rows(payload: Any, namespace: str) -> list[dict[str, Any]]:
             if any(
                 isinstance(row, dict)
                 and "state" in row
-                and row["state"] not in {"matured", "promoted"}
+                and row["state"] not in ("matured", "promoted")
                 for row in value
             ):
                 raise ValueError("prompt_recall_state_mismatch")
@@ -141,6 +141,7 @@ def context_for(prompt: str) -> str | None:
     except (
         RuntimeConfigError,
         ValueError,
+        TypeError,
         OSError,
         json.JSONDecodeError,
         subprocess.SubprocessError,
