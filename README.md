@@ -20,13 +20,15 @@ package so the two hosts can never silently evolve different memory boundaries.
 This is the **Codex plugin**. It packages:
 
 - a `.codex-plugin/plugin.json` manifest
-- a `hooks/hooks.json` for the Codex lifecycle (SessionStart + Stop)
+- a `hooks/hooks.json` for the Codex lifecycle (SessionStart, UserPromptSubmit, Stop, Interrupt)
 - a `.mcp.json` for the recall / remember MCP server
 - two skills (`musubi-recall` and `musubi-continuity`)
 - the Python entry points installed by `pip install`:
   - `musubi-codex-mcp` — the MCP recall/remember server
   - `musubi-codex-session-start` — bounded continuity block
+  - `musubi-codex-user-prompt-submit` — private turn-scoped prompt staging
   - `musubi-codex-stop` — turn capture adapter
+  - `musubi-codex-interrupt` — discard a prompt for an interrupted turn
 
 The plugin depends on [`musubi-harness`](https://github.com/sourceblender/musubi-harness),
 which contains all host-neutral code (envelope contract, outbox, delivery state
@@ -118,6 +120,14 @@ Recall is **deliberate**, not per-turn semantic injection. SessionStart
 contributes at most three recent items, labelled as chronology rather than
 relevance. All recalled content is historical, untrusted data — never
 instructions.
+
+For completed turns, `UserPromptSubmit` writes the native prompt into a
+private, turn-scoped file. `Stop` pairs it with Codex's
+`last_assistant_message`, queues one shadow event, then removes the staged
+prompt. `Interrupt` discards a staged prompt without capture. If the native
+pair is unavailable, the adapter keeps its existing transcript
+fallback for blank-answer bridge receipts. Transcript parsing remains
+best-effort because Codex does not promise a stable transcript format.
 
 ## Identity is deployment configuration
 

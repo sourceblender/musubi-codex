@@ -12,12 +12,14 @@ import hashlib
 import json
 import subprocess
 import sys
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from musubi_harness import RuntimeConfig
 
+from .prompt_stage import clear_prompt, read_prompt
 from .runtime import (
     data_root,
     harness_bin,
@@ -307,16 +309,28 @@ def parse_turn(transcript_path: Path, turn_id: str) -> tuple[str, str]:
 
 
 def build_envelope(hook: dict[str, Any]) -> dict[str, Any]:
-    required = ("session_id", "turn_id", "transcript_path")
+    required = ("session_id", "turn_id")
     if any(not isinstance(hook.get(key), str) or not hook[key] for key in required):
         raise AdapterError("hook_identity_missing")
     actor, presence, zone = _identity_config()
-    user_text, assistant_text, receipts = _parse_turn(
-        Path(hook["transcript_path"]), hook["turn_id"]
-    )
+    try:
+        staged_prompt = read_prompt(hook)
+    except ValueError as exc:
+        raise AdapterError(str(exc)) from exc
+    last_message = hook.get("last_assistant_message")
+    if staged_prompt is not None and isinstance(last_message, str) and last_message.strip():
+        user_text, assistant_text, receipts = staged_prompt, last_message, None
+        capture_source = "native_hooks"
+    else:
+        transcript_path = hook.get("transcript_path")
+        if not isinstance(transcript_path, str) or not transcript_path:
+            raise AdapterError("transcript_unavailable")
+        user_text, assistant_text, receipts = _parse_turn(Path(transcript_path), hook["turn_id"])
+        capture_source = "transcript_fallback"
     metadata: dict[str, str] = {
         "session_id": hook["session_id"],
         "turn_id": hook["turn_id"],
+        "capture_source": capture_source,
     }
     if isinstance(hook.get("model"), str) and hook["model"]:
         metadata["model"] = hook["model"]
@@ -442,10 +456,12 @@ def _record_degraded(reason: str) -> None:
 
 
 def main() -> int:
+    hook: dict[str, Any] | None = None
     try:
-        hook = json.load(sys.stdin)
-        if not isinstance(hook, dict):
+        payload = json.load(sys.stdin)
+        if not isinstance(payload, dict):
             raise AdapterError("hook_payload_invalid")
+        hook = payload
         envelope = build_envelope(hook)
         configured = runtime_config()
         db = _data_root() / envelope["actor"] / envelope["zone"] / "shadow.db"
@@ -459,6 +475,7 @@ def main() -> int:
         )
         if result.returncode != 0:
             raise AdapterError("shadow_enqueue_failed")
+        clear_prompt(hook)
         for command, timeout in delivery_commands(envelope, configured):
             result = subprocess.run(
                 command,
@@ -471,7 +488,9 @@ def main() -> int:
             if result.returncode != 0:
                 raise AdapterError("verified_delivery_failed")
     except ExpectedNoCapture:
-        pass
+        if hook is not None:
+            with suppress(OSError, ValueError):
+                clear_prompt(hook)
     except (AdapterError, json.JSONDecodeError, OSError, subprocess.SubprocessError) as exc:
         from musubi_harness import RuntimeConfigError
 
