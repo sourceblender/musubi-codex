@@ -41,8 +41,10 @@ def _run_in_clean_interpreter(script: str) -> subprocess.CompletedProcess[str]:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+        # The venv's bin/ must be on PATH: that is where pip puts the console
+        # scripts, and it's what an activated venv or a PATH install provides.
         env = {
-            "PATH": os.environ.get("PATH", ""),
+            "PATH": os.pathsep.join([str(venv_path / "bin"), os.environ.get("PATH", "")]),
             "HOME": os.environ.get("HOME", ""),
             "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
         }

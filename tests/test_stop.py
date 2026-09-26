@@ -10,26 +10,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
-# Ensure the installed harness (or sibling fallback) is on sys.path before the
-# adapter is imported. This matches the runtime's own bootstrap behaviour.
-_HERE = Path(__file__).resolve().parent
-_REPO = _HERE.parent
-_FLEET_TOOLS_LIB = Path("/Users/ericmey/Vaults/fleet-tools/lib")
-for candidate in (_FLEET_TOOLS_LIB,):
-    if (
-        candidate.is_dir()
-        and (candidate / "musubi_harness").is_dir()
-        and str(candidate) not in sys.path
-    ):
-        sys.path.insert(0, str(candidate))
-        break
-
-from musubi_codex.stop import (  # noqa: E402
+from musubi_codex.stop import (
     AdapterError,
     ExpectedNoCapture,
     _receipt_candidates,
