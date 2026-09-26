@@ -43,6 +43,12 @@ def main() -> int:
         "missing_hooks": missing,
         "hook_results": [],
     }
+    fixture_texts = {
+        value
+        for event in fixture["events"]
+        for key in ("prompt", "last_assistant_message")
+        if isinstance(value := event.get(key), str) and value
+    }
 
     with tempfile.TemporaryDirectory(prefix="musubi-codex-hook-proof-") as scratch:
         state = Path(scratch)
@@ -91,11 +97,7 @@ def main() -> int:
                     "stop_output_contract": name != "Stop" or output == "{}",
                     "text_leaked": any(
                         text in completed.stdout or text in completed.stderr
-                        for text in (
-                            event.get("prompt"),
-                            event.get("last_assistant_message"),
-                        )
-                        if isinstance(text, str) and text
+                        for text in fixture_texts
                     ),
                 }
             )

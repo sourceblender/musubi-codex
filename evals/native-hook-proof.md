@@ -18,9 +18,10 @@ interrupted turn, and a turn with no final message. The primary turn has
 `transcript_path: null` to make transcript dependence observable. All identities
 and text in the fixture are synthetic.
 
-Run the hook commands from a clean Python 3.12 environment with only published
-`musubi-codex-plugin` and `musubi-harness` installed. Use a temporary
-`PLUGIN_DATA/config.json` with actor `proof`, presence `proof/test`, zone
+Run the hook commands from a clean Python 3.12 environment with this repo
+installed locally and `musubi-harness` from PyPI. The 0.2.0 baseline receipt
+used the published plugin; CI and the 0.3.0 live proof used local checkouts.
+Use a temporary `PLUGIN_DATA/config.json` with actor `proof`, presence `proof/test`, zone
 `home`, and `delivery_mode: shadow`. No `memory-data` binary, Musubi service,
 or private fleet path is part of this capture proof.
 
@@ -68,6 +69,14 @@ exited 1. After #5 merged, [run
 36265938620](https://github.com/sourceblender/musubi-codex/actions/runs/36265938620)
 passed the same step on both Pythons with one exact shadow event and zero
 pending prompts. The runner input was unchanged.
+
+Yua's review caught a leak-check gap: the original runner compared each hook's
+output only with that hook's own text. Before the fix, an Interrupt hook
+echoing an earlier prompt was marked `text_leaked: false`. After changing the
+runner to compare every hook output with all fixture prompt and final strings,
+a temporary Interrupt wrapper echoed that earlier prompt: the gate exited 1
+with `text_leaked: true`, while the shadow event and pending prompt counts were
+otherwise correct. The wrapper was removed and the normal gate passed again.
 
 ## Live Codex proof after the fixture passes
 
