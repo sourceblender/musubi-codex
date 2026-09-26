@@ -1,0 +1,14 @@
+{
+  "assistant_text": "CODEX-ENV-PROOF-7F3E",
+  "capture_source": "native_hooks",
+  "codex_cli_version": "0.157.1",
+  "configuration": "MUSUBI_ACTOR=proof, MUSUBI_PRESENCE=proof/test, MUSUBI_ZONE=home; config.json absent during run and restored afterward",
+  "event_id": "codex:01a0df2b-c9e9-7a81-8244-9604cc75f6c5:01a0df2b-ca5b-7cf1-8bb4-fb84bb654b04",
+  "passed": true,
+  "plugin_version": "0.3.0",
+  "schema": "musubi-codex-live-env-proof-v1",
+  "scope": "Isolated Codex CLI turn; shadow only; no remote Musubi delivery",
+  "shadow_event_count_after": 2,
+  "target_head": "d8c565f",
+  "trust_mode": "explicit CLI bypass after manifest inspection"
+}
