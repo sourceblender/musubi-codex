@@ -6,6 +6,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-26
+
+### Added
+
+- Opt-in `UserPromptSubmit` recall asks Musubi for up to three settled matches
+  in the exact episodic namespace and supplies a bounded, quoted context block
+  before the turn. Missing and degraded recall are distinct from a true empty
+  result. Ranked results show relative recency scores without claiming a
+  timestamp or the latest decision.
+- Frozen prompt-recall eval runs in CI. An installed interactive Codex proof
+  covered prompt injection and a second prompt after `/compact`.
+
+### Changed
+
+- Verified `Stop` delivery drains up to five queued rows within a bounded
+  start budget when `musubi-harness` 1.2.0 is available. An older configured
+  harness binary retains its one-row drain path.
+- Setup instructions explain how to select the bundled HTTP client when an
+  operator `memory-data` tool is also installed.
+
 ## [0.4.0] - 2026-09-26
 
 ### Added
