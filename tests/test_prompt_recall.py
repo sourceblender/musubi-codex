@@ -176,6 +176,11 @@ def test_empty_and_unavailable_are_distinct(
         {"results": [_row("missing-ns", "poison", namespace=None)]},
         {"results": [_row("missing-state", "poison", state=None)]},
         {"results": [_row("bad-recency", "poison", extra={})]},
+        {
+            "results": [
+                _row("huge-recency", "poison", extra={"score_components": {"recency": 10**1000}})
+            ]
+        },
     ],
 )
 def test_degraded_or_incomplete_result_is_unavailable(
