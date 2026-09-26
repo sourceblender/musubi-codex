@@ -98,6 +98,15 @@ seconds. With the locator absent at launch, that first session emitted one
 supports a startup race and shows a bounded wait is feasible; it is a probe
 wrapper, not a fix in #7.
 
+The next candidate, #7 `3919c54`, advertises MCP tools before the locator is
+available. On a fresh installed home, its first session emitted a real
+`musubi_status` call, but the tool returned
+`plugin_data_locator_unavailable`; one locator existed after the session.
+[Lazy-start receipt](results/locator-cold-start-codex-3919c54.json). Discovery
+improved, while the first call still failed the installed-root gate. This
+observation is compatible with the same race; the event stream again does not
+expose the exact scheduling order.
+
 ## Receipt
 
 Record exact plugin and harness versions/commits, Codex CLI version, hook

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "scope": "installed_Codex_first_session_without_Musubi_credential",
+  "codex_cli": "0.157.1",
+  "plugin_head": "3919c5490bc182fc127cf0369acdc1caf2709f4e",
+  "plugin_version": "0.4.0",
+  "harness_version": "1.1.0",
+  "harness_source": "PyPI",
+  "fresh_codex_home": true,
+  "trusted_hooks": true,
+  "mcp_tool_call_events": 1,
+  "called_tool": "musubi_status",
+  "tool_result_status": "unavailable",
+  "tool_result_detail": "plugin_data_locator_unavailable",
+  "locator_files_after_session": 1,
+  "credentials_used": false,
+  "verdict": "fail: first tool call did not resolve the installed data directory",
+  "inference": "lazy MCP advertisement fixes tool discovery but the first call can race locator publication"
+}
