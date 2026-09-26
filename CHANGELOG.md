@@ -6,6 +6,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-26
+
+### Changed
+
+- A launcher-supplied seat identity now owns its transport and policy. With
+  `MUSUBI_ACTOR`/`MUSUBI_PRESENCE`/`MUSUBI_ZONE` set, shared plugin-data
+  `config.json`, `connection.json`, and `prompt_recall.json` are ignored.
+  `MUSUBI_API_URL` and `MUSUBI_TOKEN` must both come from that seat's process
+  environment. The bundled harness and HTTP client take precedence over
+  legacy fleet-tools binaries. Prompt recall opts in with
+  `MUSUBI_PROMPT_RECALL=true`; verified delivery opts in with
+  `MUSUBI_DELIVERY_MODE=verified`. Missing settings stay shadow/off.
+- File configuration remains available for single-seat installs without a
+  launcher identity. Operators sharing one OS user should use launcher mode.
+
+### Fixed
+
+- SessionStart names a seat JWT whose subject, presence, or write scope does
+  not fit the launcher identity. A known mismatch refuses remote recall and
+  delivery before the credential reaches a subprocess; Musubi still validates
+  the signed token on the server.
+
 ## [0.5.1] - 2026-09-26
 
 ### Fixed

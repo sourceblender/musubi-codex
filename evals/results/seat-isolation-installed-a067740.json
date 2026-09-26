@@ -1,0 +1,62 @@
+{
+  "codex_version": "codex-cli 0.157.1",
+  "harness_version": "1.3.1",
+  "passed": true,
+  "plugin_data_roots": [
+    ".musubi-codex-locators",
+    "musubi-codex-musubi-codex"
+  ],
+  "plugin_head": "a0677402a95859fb595692cb652a28fa36e88899",
+  "python_plugin_version": "0.6.0",
+  "requests": [
+    {
+      "method": "POST",
+      "path": "/v1/retrieve",
+      "seat": "yua"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/ops/status",
+      "seat": "yua"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/retrieve",
+      "seat": "tama"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/ops/status",
+      "seat": "tama"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "installed Codex plugin and local Python tool, two seat sessions sharing one CODEX_HOME, fake loopback HTTP only",
+  "sessions": {
+    "tama": {
+      "called_status": true,
+      "error_events": 0,
+      "exit_zero": true,
+      "mcp_calls": 1,
+      "request_seats": [
+        "tama",
+        "tama"
+      ]
+    },
+    "yua": {
+      "called_status": true,
+      "error_events": 0,
+      "exit_zero": true,
+      "mcp_calls": 1,
+      "request_seats": [
+        "yua",
+        "yua"
+      ]
+    }
+  },
+  "setup": {
+    "marketplace": true,
+    "plugin": true,
+    "python_tool": true
+  }
+}
