@@ -80,6 +80,18 @@ received none. [Published-wheel receipt](results/http-transport-pypi-harness-1.1
 This closes the published harness wheel gate only; the installed Codex host
 root and real-service readback remain open.
 
+The first installed-host trial of #7 at `06e4759` failed the cold-start gate.
+In a fresh `CODEX_HOME` with Codex CLI 0.157.1, the plugin 0.4.0 was installed
+from its local marketplace and `musubi-harness` 1.1.0 from PyPI. After the
+first session, one data-root locator existed, but the session had zero MCP tool
+call events and the agent reported that `musubi_status` was unavailable. An
+identical second session in the same home emitted one `musubi_status` tool call;
+with no connection configured it correctly returned `unavailable`.
+[Cold-start receipt](results/locator-cold-start-codex-06e4759.json). The
+paired observation suggests MCP initialized before SessionStart published the
+locator, but the event stream does not expose startup ordering directly. A
+first-session tool call remains unproved for the Codex code lane.
+
 ## Receipt
 
 Record exact plugin and harness versions/commits, Codex CLI version, hook
