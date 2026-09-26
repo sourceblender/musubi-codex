@@ -116,6 +116,28 @@ def test_recall_refuses_unsettled_result(tmp_path: Path, monkeypatch: pytest.Mon
     assert "draft" not in result
 
 
+def test_recall_fails_open_on_malformed_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable(tmp_path)
+    monkeypatch.setattr(prompt_recall.runtime, "data_root", lambda: tmp_path)
+    config = RuntimeConfig(actor="yua", presence="yua/test", zone="home")
+    monkeypatch.setattr(prompt_recall.runtime, "runtime_config", lambda: config)
+    monkeypatch.setattr(
+        prompt_recall.runtime, "memory_data_bin", lambda _config: "musubi-memory-data"
+    )
+    monkeypatch.setattr(prompt_recall.runtime, "tool_environment", lambda _config: {})
+    payload = {"results": [{"object_id": "bad", "state": [], "content": "poison"}]}
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda command, **kwargs: subprocess.CompletedProcess(command, 0, json.dumps(payload), ""),
+    )
+    result = prompt_recall.context_for("latest?")
+    assert result is not None and "unavailable" in result
+    assert "poison" not in result
+
+
 def test_empty_and_unavailable_are_distinct(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
