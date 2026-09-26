@@ -4,6 +4,7 @@
     "continuity_empty_distinct": true,
     "insecure_refused": true,
     "installed_commands": true,
+    "missing_no_ambient_fallback": true,
     "missing_unavailable": true,
     "no_private_operator": true,
     "no_token_in_errors": true,
@@ -17,6 +18,7 @@
   "passed": true,
   "python": "3.12.13",
   "request_counts": {
+    "after_missing": 2,
     "configured": 2,
     "insecure": 0,
     "redirect_origin": 1,

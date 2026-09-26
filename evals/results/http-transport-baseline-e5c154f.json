@@ -1,23 +1,25 @@
 {
   "checks": {
     "bundled_selected": true,
-    "continuity_empty_distinct": false,
+    "continuity_empty_distinct": true,
     "insecure_refused": true,
     "installed_commands": true,
-    "missing_unavailable": true,
+    "missing_no_ambient_fallback": false,
+    "missing_unavailable": false,
     "no_private_operator": true,
     "no_token_in_errors": true,
     "no_token_in_output": true,
     "private_connection_used": false,
     "redirect_refused": false,
-    "status": false,
+    "status": true,
     "symlink_refused": true
   },
   "fixture_sha256": "2a62b060aa9340a5d7ea51556382e709ae97874a10492c2fa53619b8b5fa12ef",
   "passed": false,
   "python": "3.12.13",
   "request_counts": {
-    "configured": 0,
+    "after_missing": 3,
+    "configured": 2,
     "insecure": 0,
     "redirect_origin": 0,
     "redirect_target": 0

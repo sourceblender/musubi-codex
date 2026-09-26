@@ -130,7 +130,6 @@ def main() -> int:
         # The process running this gate must have only the installed wheel's
         # console scripts on PATH. Ambient credentials are deliberate decoys.
         os.environ["PLUGIN_DATA"] = str(data)
-        os.environ["MUSUBI_API_URL"] = "http://127.0.0.1:9"
         os.environ["MUSUBI_TOKEN"] = "ambient.decoy.sig"
         os.environ.pop("MUSUBI_MEMORY_DATA_BIN", None)
         os.environ.pop("MUSUBI_HARNESS_BIN", None)
@@ -152,10 +151,18 @@ def main() -> int:
 
         first = FakeMusubi()
         with serve(first) as url:
+            # The ambient endpoint is deliberately reachable. A missing file
+            # must not silently fall back to it, and an installed client that
+            # prefers it over the private file leaves a visible request.
+            os.environ["MUSUBI_API_URL"] = url
             _write_connection(connection, url, token)
             status = call_tool(configured, "musubi_status", {})
             continuity = continuity_block()
-        request_counts["configured"] = len(first.requests)
+            configured_count = len(first.requests)
+            connection.unlink()
+            missing = call_tool(configured, "musubi_status", {})
+        request_counts["configured"] = configured_count
+        request_counts["after_missing"] = len(first.requests)
         checks["status"] = status.get("structuredContent", {}).get("result", {}).get("status") == "ok"
         checks["private_connection_used"] = bool(first.requests) and all(
             request["authorization"] == f"Bearer {token}" for request in first.requests
@@ -163,10 +170,8 @@ def main() -> int:
         checks["continuity_empty_distinct"] = "no matches" in continuity.lower() and "unavailable" not in continuity.lower()
         emitted = json.dumps(status) + continuity
         checks["no_token_in_output"] = token not in emitted and "ambient.decoy.sig" not in emitted
-
-        connection.unlink()
-        missing = call_tool(configured, "musubi_status", {})
         checks["missing_unavailable"] = missing.get("isError") is True and "unavailable" in json.dumps(missing)
+        checks["missing_no_ambient_fallback"] = len(first.requests) == configured_count
 
         guarded = FakeMusubi()
         with serve(guarded) as url:

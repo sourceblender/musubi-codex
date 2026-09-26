@@ -52,8 +52,9 @@ back its own object. The local service does not substitute for that canary.
 
 The frozen fixture digest is `2a62b060aa9340a5d7ea51556382e709ae97874a10492c2fa53619b8b5fa12ef`.
 With `musubi-harness` 1.1.0 built from shared PR #3, the current Codex main
-`e5c154f` returned exit 1: zero requests reached the configured fake service,
-and status, continuity, and redirect assertions failed. [Baseline
+`e5c154f` returned exit 1: the reachable ambient decoy got three requests,
+including one after `connection.json` was removed. Status appeared healthy
+under that decoy, while the file-token and no-fallback assertions failed. [Baseline
 receipt](results/http-transport-baseline-e5c154f.json).
 
 The same fixture against Codex #7 source head `c2da6ab` returned exit 0: the
