@@ -20,6 +20,15 @@ MAX_CONTEXT_CHARS = 1200
 
 
 def _enabled() -> bool:
+    if os.environ.get("MUSUBI_ACTOR"):
+        # A launcher identity makes the shared plugin-data preference
+        # inapplicable to this seat. Opt in per process instead.
+        value = os.environ.get("MUSUBI_PROMPT_RECALL", "")
+        if value in ("", "0", "false"):
+            return False
+        if value in ("1", "true"):
+            return True
+        raise ValueError("prompt_recall_config_invalid")
     path = runtime.data_root() / "prompt_recall.json"
     try:
         fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))

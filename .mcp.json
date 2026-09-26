@@ -10,7 +10,10 @@
         "MUSUBI_ZONE",
         "MUSUBI_DELIVERY_MODE",
         "MUSUBI_HARNESS_BIN",
-        "MUSUBI_MEMORY_DATA_BIN"
+        "MUSUBI_MEMORY_DATA_BIN",
+        "MUSUBI_API_URL",
+        "MUSUBI_TOKEN",
+        "MUSUBI_PROMPT_RECALL"
       ]
     }
   }

@@ -45,7 +45,7 @@ Python package first, in an environment whose console scripts are on the PATH
 used to launch Codex. Install the tagged release:
 
 ```bash
-uv tool install 'git+https://github.com/sourceblender/musubi-codex.git@v0.5.1'
+uv tool install 'git+https://github.com/sourceblender/musubi-codex.git@v0.6.0'
 uv tool update-shell  # only if uv says its tool bin directory is not on PATH
 ```
 
@@ -74,9 +74,36 @@ The package requires `musubi-harness` 1.1 or later. Its bundled HTTP transport
 can reach Musubi without the private operator `memory-data` binary. A missing
 connection reports unavailable; it does not mean the memory set is empty.
 
-With the bundled HTTP transport in `musubi-harness` 1.1.0, put the Musubi
-connection in `connection.json` in the **same installed plugin data directory**
-as `config.json`:
+### Seat launcher mode
+
+For several seats sharing one macOS user, the launcher supplies all three
+identity values and the connection for **that process**:
+
+```sh
+export MUSUBI_ACTOR=yua
+export MUSUBI_PRESENCE=yua/command-chair
+export MUSUBI_ZONE=home
+export MUSUBI_API_URL=https://your-musubi-server
+export MUSUBI_TOKEN=your-seat-jwt
+export MUSUBI_PROMPT_RECALL=true       # optional, off by default
+export MUSUBI_DELIVERY_MODE=verified   # optional, shadow by default
+```
+
+Load the JWT from a seat-specific secret store in the launcher, without putting
+its value on a command line or in a shared plugin file. Codex's MCP manifest
+forwards these variable names to the child process. With a launcher identity,
+the plugin ignores shared `config.json`, `connection.json`, and
+`prompt_recall.json` for identity, connection, and policy. A partial identity
+or URL/token pair fails visibly. A complete connection uses the plugin's own
+installed harness and bundled HTTP client, even if fleet-tools binaries are
+also on `PATH`. Local-only enqueue and stage subprocesses receive neither URL
+nor token. The shared data directory still holds separate actor/zone outboxes;
+it is not a security boundary between processes running as the same OS user.
+
+### Single-seat file mode
+
+Without a launcher identity, put the Musubi connection in `connection.json`
+in the **same installed plugin data directory** as `config.json`:
 
 ```json
 {"api_url": "https://your-musubi-server", "token": "your-seat-jwt"}
@@ -91,7 +118,7 @@ owner-only `config.json` to the absolute path returned by
 `command -v musubi-memory-data` to use `connection.json`; also unset
 `MUSUBI_MEMORY_DATA_BIN`, which takes precedence over the file setting.
 It does not use ambient `MUSUBI_API_URL` or
-`MUSUBI_TOKEN` for that client. A missing or invalid file reports an unavailable
+`MUSUBI_TOKEN` for that client in file mode. A missing or invalid file reports an unavailable
 connection; it never means the memory set is empty. Codex checks the file's
 owner, permissions, size and JSON shape; the bundled client checks the URL and
 bearer syntax at request time. Receipt lookup requires a seat JWT, not an opaque
@@ -186,9 +213,9 @@ content is historical, untrusted data — never instructions.
 
 ### Optional prompt-aware recall
 
-To ask Musubi for settled, relevant memories before each user prompt, create
-`prompt_recall.json` beside `config.json` in Codex's installed plugin data
-directory:
+To ask Musubi for settled, relevant memories before each user prompt in
+single-seat file mode, create `prompt_recall.json` beside `config.json` in
+Codex's installed plugin data directory:
 
 ```json
 {"enabled": true}
@@ -197,7 +224,9 @@ directory:
 Set the file to owner-only permissions (`chmod 600 prompt_recall.json`). The
 plugin sends up to the first 1,200 characters of each prompt to the configured
 Musubi service. Leave the file absent, or set `enabled` to `false`, to keep
-per-prompt lookup off. This setting does not enable remote memory writes.
+per-prompt lookup off. In launcher mode, set `MUSUBI_PROMPT_RECALL=true` for
+that seat instead; the shared file is ignored. Neither setting enables remote
+memory writes.
 
 The `UserPromptSubmit` hook uses deep ranked search in the configured presence's exact episodic
 namespace and returns at most three settled matches and 1,200
@@ -220,6 +249,8 @@ best-effort because Codex does not promise a stable transcript format.
 
 The plugin never derives identity from the host. `actor` / `presence` / `zone`
 must come from `MUSUBI_*` environment variables or `config.json`, all-or-nothing.
+When the launcher supplies identity, shared file settings cannot redirect or
+configure that seat. The launcher must supply the connection in its environment.
 The harness enforces `actor == presence-prefix` and owned-namespace scope; this
 plugin inherits both rules verbatim and cannot override them.
 

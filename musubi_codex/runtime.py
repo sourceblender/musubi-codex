@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import stat
+import sys
 import time
 from contextlib import suppress
 from pathlib import Path
@@ -39,6 +41,57 @@ class CodexRuntime(PluginRuntime):
     _mcp_locator_mode = False
     _mcp_bound_root: Path | None = None
     _mcp_bound_identity: tuple[int, int] | None = None
+
+    @staticmethod
+    def _seat_environment_mode() -> bool:
+        return bool(os.environ.get("MUSUBI_ACTOR"))
+
+    def plugin_config(self) -> dict[str, str]:
+        # Two Codex seats can share one OS user and one PLUGIN_DATA. A launcher
+        # identity must not inherit another seat's file identity or policy.
+        if self._seat_environment_mode():
+            return {}
+        return super().plugin_config()
+
+    @staticmethod
+    def _bundled_bin(name: str) -> str:
+        sibling = Path(sys.executable).with_name(name)
+        if sibling.is_file():
+            return str(sibling)
+        found = shutil.which(name)
+        if found:
+            return found
+        raise RuntimeConfigError(f"{name.replace('-', '_')}_unavailable")
+
+    def harness_bin(self, config: RuntimeConfig | None = None) -> str:
+        if self._seat_environment_mode() and not os.environ.get("MUSUBI_HARNESS_BIN"):
+            return self._bundled_bin("musubi-harness")
+        return super().harness_bin(config)
+
+    def memory_data_bin(self, config: RuntimeConfig | None = None) -> str:
+        if self._seat_environment_mode():
+            self._environment_connection()  # Reject partial transport even for local status.
+            return self._bundled_bin("musubi-memory-data")
+        return super().memory_data_bin(config)
+
+    @staticmethod
+    def _environment_connection() -> tuple[str, str] | None:
+        url = os.environ.get("MUSUBI_API_URL", "")
+        token = os.environ.get("MUSUBI_TOKEN", "")
+        if bool(url) != bool(token):
+            raise RuntimeConfigError("connection_config_incomplete")
+        if url:
+            return url, token
+        return None
+
+    @staticmethod
+    def _require_seat_identity(config: RuntimeConfig) -> None:
+        if (
+            config.actor != os.environ.get("MUSUBI_ACTOR")
+            or config.presence != os.environ.get("MUSUBI_PRESENCE")
+            or config.zone != os.environ.get("MUSUBI_ZONE")
+        ):
+            raise RuntimeConfigError("seat_identity_mismatch")
 
     def data_root(self) -> Path:
         if self._mcp_locator_mode:
@@ -126,6 +179,12 @@ class CodexRuntime(PluginRuntime):
 
     def _codex_tool_environment(self, config: RuntimeConfig) -> dict[str, str]:
         env = self.local_tool_environment(config)
+        if self._seat_environment_mode():
+            self._require_seat_identity(config)
+            connection = self._environment_connection()
+            if connection is not None:
+                env["MUSUBI_API_URL"], env["MUSUBI_TOKEN"] = connection
+            return env
         if Path(self.memory_data_bin(config)).name != "musubi-memory-data":
             return PluginRuntime.tool_environment(config)
         connection = self._connection()
@@ -135,6 +194,8 @@ class CodexRuntime(PluginRuntime):
 
     def local_tool_environment(self, config: RuntimeConfig) -> dict[str, str]:
         """Run local-only commands without credentials or remote config reads."""
+        if self._seat_environment_mode():
+            self._require_seat_identity(config)
         env = PluginRuntime.tool_environment(config)
         env.pop("MUSUBI_API_URL", None)
         env.pop("MUSUBI_TOKEN", None)
