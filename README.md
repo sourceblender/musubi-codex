@@ -90,8 +90,11 @@ The file must be owned by the current user and readable only by that user
 that may call the bundled HTTP client; local staging gets no connection secret.
 It does not use ambient `MUSUBI_API_URL` or
 `MUSUBI_TOKEN` for that client. A missing or invalid file reports an unavailable
-connection; it never means the memory set is empty. Receipt lookup requires a
-seat JWT, not an opaque API token. Shadow capture remains the default; choose
+connection; it never means the memory set is empty. Codex checks the file's
+owner, permissions, size and JSON shape; the bundled client checks the URL and
+bearer syntax at request time. Receipt lookup requires a seat JWT, not an opaque
+API token, even if that token can pass a status check. Shadow capture remains
+the default; choose
 verified delivery only after a live receipt lookup and exact readback prove the
 target service is ready.
 
