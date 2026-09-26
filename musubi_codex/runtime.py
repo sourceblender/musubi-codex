@@ -72,9 +72,8 @@ class CodexRuntime(PluginRuntime):
             env["MUSUBI_API_URL"], env["MUSUBI_TOKEN"] = connection
         return env
 
-    @staticmethod
-    def local_tool_environment(config: RuntimeConfig) -> dict[str, str]:
-        """Run local-only harness commands without HTTP credentials."""
+    def local_tool_environment(self, config: RuntimeConfig) -> dict[str, str]:
+        """Run local-only commands without credentials or remote config reads."""
         env = PluginRuntime.tool_environment(config)
         env.pop("MUSUBI_API_URL", None)
         env.pop("MUSUBI_TOKEN", None)
