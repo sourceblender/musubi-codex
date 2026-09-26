@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shlex
 import shutil
 import subprocess
@@ -12,8 +13,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-FIXTURE = ROOT / "evals/fixtures/native-hook-stream-v1.json"
+ROOT = Path(os.environ.get("MUSUBI_CODEX_PROOF_ROOT", Path(__file__).resolve().parents[1]))
+FIXTURE = Path(__file__).resolve().parent / "fixtures/native-hook-stream-v1.json"
 MANIFEST = ROOT / "hooks/hooks.json"
 REQUIRED = {"UserPromptSubmit", "Stop", "Interrupt"}
 
@@ -119,6 +120,8 @@ def main() -> int:
         result["shadow_event_count"] = len(rows)
         result["shadow_events"] = [row["envelope"] for row in rows]
         result["degradation_reasons"] = _degradation_reasons(state)
+        stage = state / "proof/home/prompt-stage"
+        result["pending_prompt_count"] = len(list(stage.glob("*.json"))) if stage.exists() else 0
 
     expected = fixture["expected"]
     matching = [
@@ -135,6 +138,7 @@ def main() -> int:
             for row in results
         )
         and len(rows) == expected["shadow_event_count"]
+        and result["pending_prompt_count"] == 0
         and len(matching) == 1
         and all(
             matching[0].get(key) == expected[key]

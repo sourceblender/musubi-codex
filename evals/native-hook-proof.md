@@ -30,6 +30,9 @@ isolated home, Codex home, and plugin data root, and restricts `PATH` to that
 interpreter's bin directory plus system tools. It prints a JSON receipt and
 exits 0 only when the frozen assertions pass. Before the implementation, exit
 1 with missing hooks and no shadow event is expected.
+To check another detached checkout, run with
+`MUSUBI_CODEX_PROOF_ROOT=/path/to/checkout` using that checkout's installed
+Python interpreter. The fixture remains this branch's frozen input.
 
 ## Assertions
 
@@ -45,8 +48,10 @@ exits 0 only when the frozen assertions pass. Before the implementation, exit
 4. Hook commands exit without blocking Codex, reveal no prompt or answer on
    stdout/stderr, and leave remote delivery disabled. The Stop hook returns
    valid JSON (`{}`) on stdout.
-5. The hook state is bounded and scoped by both session and turn. A stale or
-   malformed pending prompt fails closed and records a local degradation reason.
+5. The hook state is scoped by both session and turn. After the stream, no
+   pending prompt file remains: the completed, interrupted, and null-final
+   turns are all terminal. A malformed pending prompt fails closed and records
+   a local degradation reason.
 
 **Red proof before implementation:** the current 0.2.0 plugin has only
 `SessionStart` and `Stop`; its Stop path requires a nonempty transcript path.
