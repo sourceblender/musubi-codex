@@ -31,3 +31,5 @@ jobs:
         run: mypy musubi_codex
       - name: Tests
         run: pytest -q
+      - name: Native hook proof
+        run: python evals/run_native_hook_proof.py
