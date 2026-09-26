@@ -119,7 +119,7 @@ def context_for(prompt: str) -> str | None:
                 "musubi",
                 "search",
                 "--namespace",
-                config.presence_root,
+                config.episodic_namespace,
                 "--exact",
                 "--query",
                 query,
@@ -137,7 +137,7 @@ def context_for(prompt: str) -> str | None:
         )
         if completed.returncode != 0 or len(completed.stdout) > 64_000:
             raise ValueError("prompt_recall_unavailable")
-        return _render(_rows(json.loads(completed.stdout), config.presence_root))
+        return _render(_rows(json.loads(completed.stdout), config.episodic_namespace))
     except (
         RuntimeConfigError,
         ValueError,
