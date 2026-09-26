@@ -1,0 +1,91 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "musubi-codex-plugin"
+version = "0.2.0"
+description = "First-class Codex adapter for durable Musubi capture and recall"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Eric Mey", email = "ericmey@gmail.com" },
+]
+keywords = [
+    "openai-codex",
+    "codex",
+    "codex-plugin",
+    "musubi",
+    "memory",
+    "ai-agents",
+    "durable-memory",
+    "agent-memory",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "musubi-harness>=1.0,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "mypy>=1.13",
+    "ruff>=0.7",
+    "freezegun>=1.5",
+]
+
+[project.scripts]
+musubi-codex-mcp = "musubi_codex.mcp:main"
+musubi-codex-session-start = "musubi_codex.session_start:main"
+musubi-codex-stop = "musubi_codex.stop:main"
+
+[project.urls]
+Homepage = "https://github.com/sourceblender/musubi-codex"
+Repository = "https://github.com/sourceblender/musubi-codex.git"
+Issues = "https://github.com/sourceblender/musubi-codex/issues"
+Changelog = "https://github.com/sourceblender/musubi-codex/blob/main/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["musubi_codex"]
+
+[tool.hatch.build.targets.wheel.force-include]
+".codex-plugin/plugin.json" = "musubi_codex/_data/codex-plugin.json"
+"hooks/hooks.json" = "musubi_codex/_data/hooks.json"
+".mcp.json" = "musubi_codex/_data/mcp.json"
+"skills" = "musubi_codex/_data/skills"
+
+[tool.hatch.build.targets.wheel.shared-data]
+".codex-plugin/plugin.json" = "share/musubi-codex/codex-plugin.json"
+"hooks/hooks.json" = "share/musubi-codex/hooks.json"
+".mcp.json" = "share/musubi-codex/mcp.json"
+"skills" = "share/musubi-codex/skills"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+files = ["musubi_codex"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+pythonpath = ["."]

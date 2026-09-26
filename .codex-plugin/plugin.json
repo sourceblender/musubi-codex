@@ -1,0 +1,41 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "musubi-codex",
+  "version": "0.1.0",
+  "description": "First-class Codex adapter for durable Musubi capture and recall. Shadow-only by default; verified delivery is an explicit deployment gate. Built on the open-source musubi-harness library so the Codex and Claude seats can never silently diverge.",
+  "author": {
+    "name": "Eric Mey",
+    "email": "ericmey@gmail.com",
+    "url": "https://github.com/ericmey"
+  },
+  "homepage": "https://github.com/sourceblender/musubi-codex#readme",
+  "repository": "https://github.com/sourceblender/musubi-codex.git",
+  "license": "Apache-2.0",
+  "keywords": [
+    "openai-codex",
+    "codex-plugin",
+    "musubi",
+    "memory",
+    "ai-agents",
+    "durable-memory"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Musubi Codex",
+    "shortDescription": "Durable, policy-gated Musubi continuity for Codex.",
+    "longDescription": "Musubi Codex captures each completed primary turn into an identity-scoped outbox, exposes deliberate recall through a five-tool MCP facade, and routes explicit remember through durable receipt lookup and exact readback. Shadow-only by default — remote delivery is an explicit deployment gate that requires a deployed durable-receipt API and a live one-object canary.",
+    "developerName": "Eric Mey",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/sourceblender/musubi-codex",
+    "privacyPolicyURL": "https://github.com/sourceblender/musubi-codex/blob/main/SECURITY.md",
+    "termsOfServiceURL": "https://github.com/sourceblender/musubi-codex/blob/main/LICENSE",
+    "defaultPrompt": [
+      "Show my Musubi continuity and local shadow-capture status for this Codex seat.",
+      "Search my recent Musubi captures for the last commit on slice-plane-episodic.",
+      "Remember that the musubi-harness library is the source of identity, namespace, and delivery policy."
+    ]
+  }
+}
