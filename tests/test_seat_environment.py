@@ -29,6 +29,8 @@ def test_two_launchers_ignore_shared_file_and_pin(
         encoding="utf-8",
     )
     runtime = CodexRuntime("musubi-codex", default_data_root=tmp_path)
+    monkeypatch.setenv("MUSUBI_HARNESS_BIN", "/fleet-tools/bin/musubi-harness")
+    monkeypatch.setenv("MUSUBI_MEMORY_DATA_BIN", "/fleet-tools/bin/memory-data")
     for actor, token in (("yua", "yua-secret"), ("tama", "tama-secret")):
         _seat(monkeypatch, actor, token)
         config = runtime.runtime_config()
@@ -45,6 +47,8 @@ def test_two_launchers_ignore_shared_file_and_pin(
         assert remote["MUSUBI_TOKEN"] == token
         assert remote["MUSUBI_API_URL"] == "https://musubi.example"
         assert "MUSUBI_TOKEN" not in local and "MUSUBI_API_URL" not in local
+        assert "MUSUBI_HARNESS_BIN" not in local
+        assert "MUSUBI_MEMORY_DATA_BIN" not in remote
 
 
 def test_partial_identity_or_transport_fails_closed(

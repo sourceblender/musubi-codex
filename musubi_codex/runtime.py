@@ -64,7 +64,7 @@ class CodexRuntime(PluginRuntime):
         raise RuntimeConfigError(f"{name.replace('-', '_')}_unavailable")
 
     def harness_bin(self, config: RuntimeConfig | None = None) -> str:
-        if self._seat_environment_mode() and not os.environ.get("MUSUBI_HARNESS_BIN"):
+        if self._seat_environment_mode():
             return self._bundled_bin("musubi-harness")
         return super().harness_bin(config)
 
@@ -202,6 +202,11 @@ class CodexRuntime(PluginRuntime):
         # Claude Code exposes option values under this compatibility name.
         # Codex does not configure it, but a shared shell may still carry it.
         env.pop("CLAUDE_PLUGIN_OPTION_MUSUBI_TOKEN", None)
+        if self._seat_environment_mode():
+            # cc-start historically pins the private fleet-tools binaries.
+            # A standalone seat must not pass those pins to its children.
+            env.pop("MUSUBI_HARNESS_BIN", None)
+            env.pop("MUSUBI_MEMORY_DATA_BIN", None)
         return env
 
     @staticmethod
