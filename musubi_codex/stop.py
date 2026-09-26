@@ -431,10 +431,24 @@ def delivery_commands(
                 memory_data,
                 "--timeout",
                 "5",
+                "--max",
+                "5",
+                "--budget-seconds",
+                "3",
             ],
-            15,
+            24,
         ),
     ]
+
+
+def _legacy_drain_retry(command: list[str], result: subprocess.CompletedProcess[str]) -> bool:
+    """An explicitly older harness may lack batch flags; retry its original one-row command."""
+    return (
+        "--memory-data-bin" in command
+        and command[-4:] == ["--max", "5", "--budget-seconds", "3"]
+        and result.returncode == 2
+        and "error: unrecognized arguments: --max 5 --budget-seconds 3" in result.stderr
+    )
 
 
 def _record_degraded(reason: str) -> None:
@@ -496,6 +510,15 @@ def main() -> int:
                 check=False,
                 env=environment,
             )
+            if _legacy_drain_retry(command, result):
+                result = subprocess.run(
+                    command[:-4],
+                    text=True,
+                    capture_output=True,
+                    timeout=15,
+                    check=False,
+                    env=environment,
+                )
             if result.returncode != 0:
                 raise AdapterError("verified_delivery_failed")
     except ExpectedNoCapture:

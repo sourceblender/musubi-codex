@@ -154,6 +154,13 @@ The plugin refuses partial or empty identity values. The shared runtime
 enforces `actor == presence-prefix`, so no adapter can read or write under
 another actor's seat.
 
+In verified mode, `Stop` stages the completed turn and makes one bounded
+delivery pass. With musubi-harness 1.2.0 or newer, that pass can verify up to
+five queued rows, oldest first, within a three-second start budget. A row
+already in progress may finish after that budget. If a configured older
+harness binary rejects the batch flags, the hook retries its original one-row
+pass. Shadow mode makes no remote delivery call.
+
 ## Phase 1 recall contract
 
 The MCP facade exposes five tools, identical to every other Musubi adapter:
