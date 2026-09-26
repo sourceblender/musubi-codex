@@ -75,8 +75,36 @@ and the Stop hook can write to the local shadow outbox, but remote Musubi
 capture and recall still require the private `memory-data` binary. On a clean
 machine without that binary, session start reports `memory_data_unavailable`.
 That means the service was not reached; it does not mean the memory set is
-empty. A shared-harness HTTP transport is planned so an independent install
-can perform remote reads and writes without fleet-tools.
+empty. Upgrade to `musubi-harness` 1.1.0 for the bundled HTTP transport.
+
+With the bundled HTTP transport in `musubi-harness` 1.1.0, put the Musubi
+connection in `connection.json` in the **same installed plugin data directory**
+as `config.json`:
+
+```json
+{"api_url": "https://your-musubi-server", "token": "your-seat-jwt"}
+```
+
+The file must be owned by the current user and readable only by that user
+(`chmod 600 connection.json`). The hook passes its values only to the bundled
+HTTP client's child process. It does not use ambient `MUSUBI_API_URL` or
+`MUSUBI_TOKEN` for that client. A missing or invalid file reports an unavailable
+connection; it never means the memory set is empty. Receipt lookup requires a
+seat JWT, not an opaque API token. Shadow capture remains the default; choose
+verified delivery only after a live receipt lookup and exact readback prove the
+target service is ready.
+
+Codex, not this package, assigns `PLUGIN_DATA` to an installed hook. Codex CLI
+0.157.1 assigned `CODEX_HOME/plugins/data/musubi-codex-musubi-codex` in our
+isolated proof; that path shape is an observation, not a stable setup API.
+Inspect the hook's actual data directory before placing `connection.json`.
+After a completed shadow-captured turn, locate its `shadow.db` without
+exposing the token. The plugin data directory is three levels above that file
+(`.../<plugin-data>/<actor>/<zone>/shadow.db`):
+
+```sh
+find "${CODEX_HOME:-$HOME/.codex}/plugins/data" -path '*musubi-codex*' -name shadow.db -print
+```
 
 ### As a Python package (for development)
 

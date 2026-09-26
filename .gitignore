@@ -33,3 +33,4 @@ env/
 *.db-wal
 *.db-shm
 degraded.jsonl
+connection.json
