@@ -20,6 +20,7 @@ from musubi_harness.plugin_runtime import (
     RuntimeConfig,
     RuntimeConfigError,
 )
+from musubi_harness.tokens import token_presence_problems
 
 from . import CODEX_DATA_NAME, STATE_NAME
 from .data_locator import DataLocatorError, publish_data_root, resolve_data_root
@@ -183,6 +184,8 @@ class CodexRuntime(PluginRuntime):
             self._require_seat_identity(config)
             connection = self._environment_connection()
             if connection is not None:
+                if token_presence_problems(connection[1], config.presence):
+                    raise RuntimeConfigError("token_presence_mismatch")
                 env["MUSUBI_API_URL"], env["MUSUBI_TOKEN"] = connection
             return env
         if Path(self.memory_data_bin(config)).name != "musubi-memory-data":

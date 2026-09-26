@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from pathlib import Path
 
 import pytest
 from musubi_harness.plugin_runtime import RuntimeConfigError
 
-from musubi_codex import prompt_recall
+from musubi_codex import prompt_recall, session_start
 from musubi_codex.runtime import CodexRuntime
 
 
@@ -18,6 +19,14 @@ def _seat(monkeypatch: pytest.MonkeyPatch, actor: str, token: str) -> None:
     monkeypatch.setenv("MUSUBI_ZONE", "home")
     monkeypatch.setenv("MUSUBI_API_URL", "https://musubi.example")
     monkeypatch.setenv("MUSUBI_TOKEN", token)
+
+
+def _jwt(subject: str, scope: str, *, presence: str | None = None) -> str:
+    def part(value: object) -> str:
+        return base64.urlsafe_b64encode(json.dumps(value).encode()).decode().rstrip("=")
+
+    claims = {"sub": subject, "scope": scope, "presence": presence or subject}
+    return f"{part({'alg': 'none'})}.{part(claims)}.synthetic"
 
 
 def test_two_launchers_ignore_shared_file_and_pin(
@@ -90,3 +99,34 @@ def test_mcp_manifest_forwards_seat_transport() -> None:
         "MUSUBI_API_URL",
         "MUSUBI_TOKEN",
     } <= forwarded
+
+
+def test_wrong_seat_token_refuses_transport_and_warns_at_session_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    token = _jwt("tama/codex", "tama/codex/*:rw")
+    _seat(monkeypatch, "yua", token)
+    runtime = CodexRuntime("musubi-codex", default_data_root=tmp_path)
+    config = runtime.runtime_config()
+    with pytest.raises(RuntimeConfigError, match="token_presence_mismatch"):
+        runtime.tool_environment(config)
+    monkeypatch.setattr(session_start, "runtime", runtime)
+    monkeypatch.setattr(
+        session_start._continuity,
+        "continuity_block",
+        lambda: pytest.fail("wrong token must not reach remote recall or delivery"),
+    )
+    warning = session_start.continuity_block()
+    assert "tama/codex" in warning and "yua/codex" in warning
+    assert "Remote recall and delivery are refused" in warning
+    assert token not in warning
+
+
+def test_matching_subject_with_wrong_presence_is_still_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    token = _jwt("yua/codex", "yua/codex/*:rw", presence="tama/codex")
+    _seat(monkeypatch, "yua", token)
+    runtime = CodexRuntime("musubi-codex", default_data_root=tmp_path)
+    with pytest.raises(RuntimeConfigError, match="token_presence_mismatch"):
+        runtime.tool_environment(runtime.runtime_config())

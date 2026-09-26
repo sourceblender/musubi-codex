@@ -70,7 +70,7 @@ then trust those exact definitions. Codex does not auto-trust newly installed
 command hooks. Run `musubi-codex-session-start` in the same shell to check its
 local continuity output before relying on the hook.
 
-The package requires `musubi-harness` 1.1 or later. Its bundled HTTP transport
+The package requires `musubi-harness` 1.3.1 or later. Its bundled HTTP transport
 can reach Musubi without the private operator `memory-data` binary. A missing
 connection reports unavailable; it does not mean the memory set is empty.
 
@@ -97,7 +97,10 @@ the plugin ignores shared `config.json`, `connection.json`, and
 or URL/token pair fails visibly. A complete connection uses the plugin's own
 installed harness and bundled HTTP client, even if fleet-tools binaries are
 also on `PATH`. Local-only enqueue and stage subprocesses receive neither URL
-nor token. The shared data directory still holds separate actor/zone outboxes;
+nor token. SessionStart checks the JWT's unverified identity and write-scope
+claims against the seat and warns when they do not fit. A known mismatch
+refuses remote recall and delivery; the Musubi server remains the authority
+for token validity. The shared data directory still holds separate actor/zone outboxes;
 it is not a security boundary between processes running as the same OS user.
 
 ### Single-seat file mode

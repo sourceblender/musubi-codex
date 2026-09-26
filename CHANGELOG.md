@@ -21,6 +21,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - File configuration remains available for single-seat installs without a
   launcher identity. Operators sharing one OS user should use launcher mode.
 
+### Fixed
+
+- SessionStart names a seat JWT whose subject, presence, or write scope does
+  not fit the launcher identity. A known mismatch refuses remote recall and
+  delivery before the credential reaches a subprocess; Musubi still validates
+  the signed token on the server.
+
 ## [0.5.1] - 2026-09-26
 
 ### Fixed
