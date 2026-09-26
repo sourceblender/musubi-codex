@@ -77,6 +77,9 @@ class CodexRuntime(PluginRuntime):
         env = PluginRuntime.tool_environment(config)
         env.pop("MUSUBI_API_URL", None)
         env.pop("MUSUBI_TOKEN", None)
+        # Claude Code exposes option values under this compatibility name.
+        # Codex does not configure it, but a shared shell may still carry it.
+        env.pop("CLAUDE_PLUGIN_OPTION_MUSUBI_TOKEN", None)
         return env
 
     @staticmethod

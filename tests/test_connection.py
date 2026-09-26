@@ -36,6 +36,7 @@ def test_bundled_client_gets_only_the_private_connection(
     monkeypatch.setattr(runtime, "memory_data_bin", lambda _config: "/venv/bin/musubi-memory-data")
     monkeypatch.setenv("MUSUBI_API_URL", "https://ambient.invalid")
     monkeypatch.setenv("MUSUBI_TOKEN", "ambient-secret")
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_MUSUBI_TOKEN", "alias-secret")
     _write(
         tmp_path / "connection.json", {"api_url": "https://musubi.example", "token": "file-secret"}
     )
@@ -44,6 +45,7 @@ def test_bundled_client_gets_only_the_private_connection(
 
     assert env["MUSUBI_API_URL"] == "https://musubi.example"
     assert env["MUSUBI_TOKEN"] == "file-secret"
+    assert "CLAUDE_PLUGIN_OPTION_MUSUBI_TOKEN" not in env
     assert env["FLEET_IDENTITY"] == "proof"
 
 
@@ -54,11 +56,13 @@ def test_bundled_client_does_not_inherit_ambient_connection(
     monkeypatch.setattr(runtime, "memory_data_bin", lambda _config: "musubi-memory-data")
     monkeypatch.setenv("MUSUBI_API_URL", "https://ambient.invalid")
     monkeypatch.setenv("MUSUBI_TOKEN", "ambient-secret")
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_MUSUBI_TOKEN", "alias-secret")
 
     env = runtime._codex_tool_environment(_config())
 
     assert "MUSUBI_API_URL" not in env
     assert "MUSUBI_TOKEN" not in env
+    assert "CLAUDE_PLUGIN_OPTION_MUSUBI_TOKEN" not in env
 
 
 def test_operator_transport_keeps_its_existing_environment(
@@ -81,6 +85,7 @@ def test_local_stage_does_not_receive_connection_credentials(
     runtime = _runtime(tmp_path)
     monkeypatch.setenv("MUSUBI_API_URL", "https://ambient.invalid")
     monkeypatch.setenv("MUSUBI_TOKEN", "ambient-secret")
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_MUSUBI_TOKEN", "alias-secret")
     _write(
         tmp_path / "connection.json", {"api_url": "https://musubi.example", "token": "file-secret"}
     )
@@ -89,6 +94,7 @@ def test_local_stage_does_not_receive_connection_credentials(
 
     assert "MUSUBI_API_URL" not in env
     assert "MUSUBI_TOKEN" not in env
+    assert "CLAUDE_PLUGIN_OPTION_MUSUBI_TOKEN" not in env
 
 
 def test_stop_subprocesses_scope_connection_to_drain(
@@ -112,6 +118,7 @@ def test_stop_subprocesses_scope_connection_to_drain(
     monkeypatch.setenv("PLUGIN_DATA", str(tmp_path))
     monkeypatch.setenv("MUSUBI_API_URL", "https://ambient.invalid")
     monkeypatch.setenv("MUSUBI_TOKEN", "ambient-secret")
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_MUSUBI_TOKEN", "alias-secret")
     for name in ("MUSUBI_ACTOR", "MUSUBI_PRESENCE", "MUSUBI_ZONE"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr("musubi_codex.stop.harness_bin", lambda *_args: "musubi-harness")
@@ -144,8 +151,10 @@ def test_stop_subprocesses_scope_connection_to_drain(
     for _argv, env in calls[:2]:
         assert "MUSUBI_API_URL" not in env
         assert "MUSUBI_TOKEN" not in env
+        assert "CLAUDE_PLUGIN_OPTION_MUSUBI_TOKEN" not in env
     assert calls[2][1]["MUSUBI_API_URL"] == "https://musubi.example"
     assert calls[2][1]["MUSUBI_TOKEN"] == "file-secret"
+    assert "CLAUDE_PLUGIN_OPTION_MUSUBI_TOKEN" not in calls[2][1]
 
 
 @pytest.mark.parametrize(
