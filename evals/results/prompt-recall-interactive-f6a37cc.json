@@ -1,0 +1,38 @@
+{
+  "candidate_code_head": "38bd8b9bf0f33639a0e116f37270cb878d42f4df",
+  "candidate_review_head": "f6a37cce63e4db907f0bd0c17dc2323435195344",
+  "checks": {
+    "SessionStart_after_compact_ran_and_queried_recent": true,
+    "UserPromptSubmit_after_compact_reinjected_both_rows": true,
+    "additional_context_contains_older_0_100_and_newer_0_900": true,
+    "fake_HTTP_fast_exact_episodic_query": true,
+    "interactive_UserPromptSubmit_ran": true,
+    "manual_compact_completed": true,
+    "model_after_compact_answered_both_ids_and_scores": true,
+    "model_answered_both_ids_and_scores_without_tools": true,
+    "settled_filter_requested": true
+  },
+  "fixture_sha256": "cab43a1443eb057c4ee26e5624ea7c18921d3ab37428a98bf18c5599ebfa609d",
+  "limits": [
+    "Synthetic local HTTP, not a live Musubi search",
+    "The recent endpoint returned no matches, so no specific recent memory survived compaction in this fixture",
+    "No claim that ranked order proves latest decision"
+  ],
+  "observations": {
+    "after_compact": "fresh recent continuity block had no matches; prompt recall supplied the two ranked IDs",
+    "after_pin": "two IDs and relative recency scores injected and answered",
+    "first_host_attempt": "unavailable; operator tool selected from house PATH"
+  },
+  "passed": true,
+  "schema_version": 1,
+  "scope": "installed_interactive_Codex_0.157.1_synthetic_HTTP",
+  "setup": {
+    "credential": "synthetic_local_only; value omitted",
+    "hook_trust": "reviewed_and_trusted_in_isolated_TUI",
+    "identity": "tama/codex",
+    "namespace": "tama/codex/episodic",
+    "operator_precedence": "host_prepended_house_memory-data_to_PATH; first attempt returned unavailable without fake HTTP request",
+    "selection": "owner-only config.json pinned memory_data_bin; connection.json and prompt_recall.json owner-only",
+    "transport": "bundled_musubi-memory-data_from_isolated_Python_3.12_venv"
+  }
+}
