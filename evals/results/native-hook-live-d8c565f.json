@@ -1,0 +1,47 @@
+{
+  "codex_cli_version": "0.157.1",
+  "hook_manifest_sha256": "3c6f35db219fed93c77d21caf833f972462a2450bb8b2596100fef51d5b4d962",
+  "hook_trust_mode": "explicit CLI bypass after manifest inspection; persisted interactive trust untested",
+  "identity": {
+    "actor": "proof",
+    "presence": "proof/test",
+    "zone": "home"
+  },
+  "initial_setup_observation": "Caller PLUGIN_DATA was overridden by Codex; first run degraded with explicit_identity_config_missing. Configured the host assigned plugin data directory and reran.",
+  "install": "isolated local marketplace plus isolated Python 3.12 tool environment",
+  "interrupt": {
+    "completed_turn_events": 0,
+    "hooks": [
+      "SessionStart",
+      "UserPromptSubmit",
+      "Interrupt"
+    ],
+    "session_id": "01a0df25-b9aa-7812-bfa5-6102554bdc55"
+  },
+  "limits": [
+    "No remote Musubi delivery or recall tested",
+    "No persisted interactive hook trust tested",
+    "One normal and one interrupted Codex CLI turn only"
+  ],
+  "normal": {
+    "assistant_text": "CODEX-NATIVE-PROOF-7F3D",
+    "capture_source": "native_hooks",
+    "disposition": "shadow",
+    "event_id": "codex:01a0df25-202a-7d63-8b29-72505404a35d:01a0df25-2039-7f72-a008-adb495e7fbf9",
+    "hooks": [
+      "SessionStart",
+      "UserPromptSubmit",
+      "Stop"
+    ],
+    "session_id": "01a0df25-202a-7d63-8b29-72505404a35d",
+    "turn_id": "01a0df25-2039-7f72-a008-adb495e7fbf9",
+    "user_text": "This is a synthetic Codex plugin proof. Reply with exactly: CODEX-NATIVE-PROOF-7F3D"
+  },
+  "passed": true,
+  "pending_prompt_count": 0,
+  "plugin_version": "0.3.0",
+  "remote_writes_enabled": false,
+  "schema": "musubi-codex-live-native-hook-proof-v1",
+  "shadow_event_count": 1,
+  "target_head": "d8c565f"
+}

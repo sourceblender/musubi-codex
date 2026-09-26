@@ -71,5 +71,12 @@ turn that is interrupted and verify no completed-turn event. Record Codex CLI
 version, plugin commit and hook hash, session/turn IDs, local event readback,
 and the hook trust state in a receipt with no secrets or private paths.
 
+Codex sets `PLUGIN_DATA` for the installed plugin. Put the synthetic
+`config.json` in that host assigned directory; a caller supplied `PLUGIN_DATA`
+is overridden during hook execution. An automated proof may use Codex's
+explicit hook trust bypass after inspecting the exact hook manifest, but its
+receipt must label that trust mode and must not claim the interactive `/hooks`
+trust flow was tested.
+
 This establishes local capture only. It does not prove remote Musubi delivery,
 semantic recall quality, or that every Codex surface invokes these hooks.
