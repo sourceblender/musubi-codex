@@ -31,6 +31,22 @@ call_tool = _facade.call_tool
 response_for = _facade.response_for
 
 
+def _unavailable(request_id: object, detail: str) -> dict[str, Any]:
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "result": {
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps({"ok": False, "status": "unavailable", "detail": detail}),
+                }
+            ],
+            "isError": True,
+        },
+    }
+
+
 def serve(*, stdin: Iterable[str], stdout: TextIO) -> int:
     """Advertise tools before hooks run; resolve host data for each call."""
     use_installed_mcp_locator()
@@ -53,25 +69,13 @@ def serve(*, stdin: Iterable[str], stdout: TextIO) -> int:
                 try:
                     configured = runtime.runtime_config()
                 except (DataLocatorError, RuntimeConfigError) as exc:
-                    response: dict[str, Any] | None = {
-                        "jsonrpc": "2.0",
-                        "id": request.get("id"),
-                        "result": {
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": json.dumps(
-                                        {"ok": False, "status": "unavailable", "detail": str(exc)}
-                                    ),
-                                }
-                            ],
-                            "isError": True,
-                        },
-                    }
+                    response: dict[str, Any] | None = _unavailable(request.get("id"), str(exc))
                 else:
                     response = _facade.response_for(request, configured)
             else:
                 response = _facade.response_for(request, placeholder)
+        except DataLocatorError as exc:
+            response = _unavailable(request.get("id"), str(exc))
         except (json.JSONDecodeError, ValueError):
             response = {
                 "jsonrpc": "2.0",

@@ -233,3 +233,35 @@ def test_default_codex_home_works_without_exported_codex_home(
         == 0
     )
     assert runtime.data_root() == data
+
+
+def test_locator_disappearing_during_tool_call_is_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home, root, data = _installation(tmp_path)
+    (data / "config.json").write_text(
+        json.dumps({"actor": "proof", "presence": "proof/test", "zone": "home"})
+    )
+    publish_data_root(str(home), str(root), str(data))
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    monkeypatch.delenv("PLUGIN_DATA", raising=False)
+    for name in ("MUSUBI_ACTOR", "MUSUBI_PRESENCE", "MUSUBI_ZONE"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.chdir(root)
+    monkeypatch.setattr(runtime, "_mcp_locator_mode", False)
+
+    def lost(_request: object, _config: object) -> None:
+        raise DataLocatorError("plugin_data_locator_unavailable")
+
+    monkeypatch.setattr(mcp._facade, "response_for", lost)
+    output = io.StringIO()
+    request = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": "musubi_status", "arguments": {}},
+    }
+    assert mcp.serve(stdin=io.StringIO(json.dumps(request) + "\n"), stdout=output) == 0
+    response = json.loads(output.getvalue())
+    assert response["result"]["isError"] is True
+    assert "plugin_data_locator_unavailable" in response["result"]["content"][0]["text"]
