@@ -48,7 +48,7 @@ def _enabled() -> bool:
     return value["enabled"]
 
 
-def _rows(payload: Any) -> list[dict[str, Any]]:
+def _rows(payload: Any, namespace: str) -> list[dict[str, Any]]:
     if not isinstance(payload, dict):
         raise ValueError("prompt_recall_response_invalid")
     for key in ("results", "items", "memories", "data"):
@@ -56,6 +56,11 @@ def _rows(payload: Any) -> list[dict[str, Any]]:
             value = payload[key]
             if not isinstance(value, list):
                 raise ValueError("prompt_recall_response_invalid")
+            if any(
+                isinstance(row, dict) and "namespace" in row and row["namespace"] != namespace
+                for row in value
+            ):
+                raise ValueError("prompt_recall_scope_mismatch")
             return [row for row in value if isinstance(row, dict)][:MAX_RESULTS]
     raise ValueError("prompt_recall_response_invalid")
 
@@ -120,7 +125,7 @@ def context_for(prompt: str) -> str | None:
         )
         if completed.returncode != 0 or len(completed.stdout) > 64_000:
             raise ValueError("prompt_recall_unavailable")
-        return _render(_rows(json.loads(completed.stdout)))
+        return _render(_rows(json.loads(completed.stdout), config.presence_root))
     except (
         RuntimeConfigError,
         ValueError,
