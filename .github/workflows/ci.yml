@@ -33,3 +33,5 @@ jobs:
         run: pytest -q
       - name: Native hook proof
         run: python evals/run_native_hook_proof.py
+      - name: Prompt recall proof
+        run: python evals/run_prompt_recall_proof.py
