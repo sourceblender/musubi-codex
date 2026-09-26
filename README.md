@@ -85,6 +85,11 @@ as `config.json`:
 The file must be owned by the current user and readable only by that user
 (`chmod 600 connection.json`). The hook passes its values only to subprocesses
 that may call the bundled HTTP client; local staging gets no connection secret.
+The shared harness prefers an installed operator `memory-data` over its bundled
+`musubi-memory-data`. On machines with both, set `memory_data_bin` in the
+owner-only `config.json` to the absolute path returned by
+`command -v musubi-memory-data` to use `connection.json`; also unset
+`MUSUBI_MEMORY_DATA_BIN`, which takes precedence over the file setting.
 It does not use ambient `MUSUBI_API_URL` or
 `MUSUBI_TOKEN` for that client. A missing or invalid file reports an unavailable
 connection; it never means the memory set is empty. Codex checks the file's
@@ -168,10 +173,33 @@ The MCP facade exposes five tools, identical to every other Musubi adapter:
 
 `musubi_think` is intentionally absent.
 
-Recall is **deliberate**, not per-turn semantic injection. SessionStart
-contributes at most three recent items, labelled as chronology rather than
-relevance. All recalled content is historical, untrusted data — never
-instructions.
+Recall through MCP is deliberate. SessionStart contributes at most three
+recent items, labelled as chronology rather than relevance. All recalled
+content is historical, untrusted data — never instructions.
+
+### Optional prompt-aware recall
+
+To ask Musubi for settled, relevant memories before each user prompt, create
+`prompt_recall.json` beside `config.json` in Codex's installed plugin data
+directory:
+
+```json
+{"enabled": true}
+```
+
+Set the file to owner-only permissions (`chmod 600 prompt_recall.json`). The
+plugin sends up to the first 1,200 characters of each prompt to the configured
+Musubi service. Leave the file absent, or set `enabled` to `false`, to keep
+per-prompt lookup off. This setting does not enable remote memory writes.
+
+The `UserPromptSubmit` hook searches the configured presence's exact episodic
+namespace and returns at most three settled matches and 1,200
+characters of labelled, untrusted context. It preserves Musubi's result order,
+includes object IDs and a relative recency score for follow-up, and distinguishes
+a true empty result from an unavailable or degraded service. Ranked results do
+not include timestamps, so the score is not proof of the latest decision. The
+hook still stages the prompt for `Stop` capture
+if lookup fails. No transcript parsing is used.
 
 For completed turns, `UserPromptSubmit` writes the native prompt into a
 private, turn-scoped file. `Stop` pairs it with Codex's
