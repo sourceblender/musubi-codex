@@ -117,6 +117,30 @@ receipt](results/locator-hook-order-codex-634ca29.json). This supports a
 narrower cause: the early hooks cannot publish a locator while
 `publish_data_root` requires the not-yet-created directory.
 
+The next candidate, #7 `e5d3113`, created the host-assigned data directory
+at SessionStart but delayed MCP initialization for up to three seconds.
+Uninstrumented first-session installs were inconsistent: one initial trial
+and one of three repeat homes had zero MCP tool calls; the other two repeat
+homes called `musubi_status` and returned the expected unconfigured result.
+All repeat homes had a locator and shadow database after the session. A
+diagnostic wrapper changed the outcome in a separate run, so its passing
+result is not counted as proof. [Failed repeat
+receipt](results/locator-cold-start-codex-e5d3113.json).
+
+At #7 `d683765`, tool discovery no longer waits for the locator; only the
+first tool call may wait. Three independent, uninstrumented fresh
+`CODEX_HOME` installs on Codex CLI 0.157.1 each called `musubi_status` in
+their first session and returned `MUSUBI_API_URL is not configured`, as
+expected without a credential. The plugin was built from that exact head;
+the Python 3.12 environment installed `musubi-harness` 1.1.0 from PyPI and
+excluded the private `memory-data` executable from `PATH`.
+[First-session receipt](results/locator-cold-start-codex-d683765.json).
+The frozen disposable HTTP gate also passed 13/13 against the package built
+from `d683765`. [Transport
+receipt](results/http-transport-pypi-harness-1.1.0-codex-d683765.json).
+This establishes installed first-session discovery and the
+synthetic transport boundary; real Musubi receipt/readback remains open.
+
 ## Receipt
 
 Record exact plugin and harness versions/commits, Codex CLI version, hook
