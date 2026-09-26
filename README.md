@@ -70,13 +70,55 @@ then trust those exact definitions. Codex does not auto-trust newly installed
 command hooks. Run `musubi-codex-session-start` in the same shell to check its
 local continuity output before relying on the hook.
 
-**Transport limit when using `musubi-harness` 1.0.1:** the Python commands can install
-and the Stop hook can write to the local shadow outbox, but remote Musubi
-capture and recall still require the private `memory-data` binary. On a clean
-machine without that binary, session start reports `memory_data_unavailable`.
-That means the service was not reached; it does not mean the memory set is
-empty. A shared-harness HTTP transport is planned so an independent install
-can perform remote reads and writes without fleet-tools.
+The package requires `musubi-harness` 1.1 or later. Its bundled HTTP transport
+can reach Musubi without the private operator `memory-data` binary. A missing
+connection reports unavailable; it does not mean the memory set is empty.
+
+With the bundled HTTP transport in `musubi-harness` 1.1.0, put the Musubi
+connection in `connection.json` in the **same installed plugin data directory**
+as `config.json`:
+
+```json
+{"api_url": "https://your-musubi-server", "token": "your-seat-jwt"}
+```
+
+The file must be owned by the current user and readable only by that user
+(`chmod 600 connection.json`). The hook passes its values only to subprocesses
+that may call the bundled HTTP client; local staging gets no connection secret.
+It does not use ambient `MUSUBI_API_URL` or
+`MUSUBI_TOKEN` for that client. A missing or invalid file reports an unavailable
+connection; it never means the memory set is empty. Codex checks the file's
+owner, permissions, size and JSON shape; the bundled client checks the URL and
+bearer syntax at request time. Receipt lookup requires a seat JWT, not an opaque
+API token, even if that token can pass a status check. Shadow capture remains
+the default; choose
+verified delivery only after a live receipt lookup and exact readback prove the
+target service is ready.
+
+Codex, not this package, assigns `PLUGIN_DATA` to an installed hook. Codex CLI
+0.157.1 assigned `CODEX_HOME/plugins/data/musubi-codex-musubi-codex` in our
+isolated proof; that path shape is an observation, not a stable setup API.
+Inspect the hook's actual data directory before placing `connection.json`.
+The hook records that directory in an owner-only locator keyed by its installed
+plugin root. The MCP manifest runs from that root and forwards `CODEX_HOME`
+when set; otherwise both processes use Codex's default `~/.codex`. The MCP
+server then uses the same directory. A locator must be fresh when MCP first
+binds; after that the MCP process keeps the verified directory for its session
+and refuses a replaced directory. If the locator is absent, stale, or points outside
+Codex's plugin data tree, the MCP server still advertises its tools, but a
+tool call reports `plugin_data_locator_unavailable` or
+`plugin_data_locator_invalid` until a hook publishes a valid locator. It does
+not read a guessed plugin data directory. The first tool call waits up to three
+seconds for an absent locator while SessionStart runs. MCP advertises its tools
+without waiting for that hook, because Codex can initialize MCP before it
+starts SessionStart. An invalid locator is refused immediately.
+After a completed shadow-captured turn, locate its `shadow.db` without
+exposing the token. The plugin data directory is three levels above that file
+(`.../<plugin-data>/<actor>/<zone>/shadow.db`):
+
+```sh
+find "${CODEX_HOME:-$HOME/.codex}/plugins/data" -path '*musubi-codex*' -name shadow.db -print
+```
 
 ### As a Python package (for development)
 

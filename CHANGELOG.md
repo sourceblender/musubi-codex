@@ -4,6 +4,28 @@ All notable changes to `musubi-codex` are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.4.0] - 2026-09-26
+
+### Added
+
+- The bundled Musubi HTTP client receives its URL and seat JWT from an
+  owner-only `connection.json` in Codex's plugin data directory. Ambient
+  connection variables are ignored for that client; the existing operator
+  `memory-data` transport keeps its configuration.
+- Installed hooks publish their host-assigned plugin data directory in a
+  short-lived, owner-only locator keyed by the installed plugin root. The MCP
+  child resolves that exact directory per tool call or reports unavailable;
+  it never guesses a different checkout's state. Tool discovery remains
+  available when Codex starts MCP before its SessionStart hook. A bounded
+  startup wait covers Codex's first-session hook/MCP race.
+
+### Changed
+
+- Require `musubi-harness>=1.1,<2` for the public HTTP transport and the
+  local-only subprocess credential boundary.
+
 ## [0.3.0] - 2026-09-26
 
 ### Added

@@ -23,6 +23,7 @@ from .prompt_stage import clear_prompt, read_prompt
 from .runtime import (
     data_root,
     harness_bin,
+    local_tool_environment,
     memory_data_bin,
     plugin_config,
     runtime_config,
@@ -475,19 +476,25 @@ def main() -> int:
             capture_output=True,
             timeout=8,
             check=False,
+            env=local_tool_environment(configured),
         )
         if result.returncode != 0:
             raise AdapterError("shadow_enqueue_failed")
         retain_staged_prompt = False
         clear_prompt(hook)
         for command, timeout in delivery_commands(envelope, configured):
+            environment = (
+                tool_environment(configured)
+                if "--memory-data-bin" in command
+                else local_tool_environment(configured)
+            )
             result = subprocess.run(
                 command,
                 text=True,
                 capture_output=True,
                 timeout=timeout,
                 check=False,
-                env=tool_environment(configured),
+                env=environment,
             )
             if result.returncode != 0:
                 raise AdapterError("verified_delivery_failed")
