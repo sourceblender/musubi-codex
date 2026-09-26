@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import sys
+
 from musubi_harness.plugin_mcp import (
     SERVER_INSTRUCTIONS,
     PluginMcpFacade,
     tool_definitions,
 )
 
-from .runtime import runtime
+from .data_locator import DataLocatorError
+from .runtime import bind_installed_mcp_data_root, runtime
 
 _facade = PluginMcpFacade(
     runtime,
@@ -25,6 +28,11 @@ response_for = _facade.response_for
 
 
 def main() -> int:
+    try:
+        bind_installed_mcp_data_root()
+    except DataLocatorError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     return _facade.serve()
 
 

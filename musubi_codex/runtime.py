@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+from contextlib import suppress
 from pathlib import Path
 
 from musubi_harness.plugin_runtime import (
@@ -18,6 +19,7 @@ from musubi_harness.plugin_runtime import (
 )
 
 from . import CODEX_DATA_NAME, STATE_NAME
+from .data_locator import DataLocatorError, publish_data_root, resolve_data_root
 
 
 def _bootstrap_data_root() -> Path:
@@ -30,6 +32,20 @@ def _bootstrap_data_root() -> Path:
 
 class CodexRuntime(PluginRuntime):
     """Supply the bundled HTTP client with this plugin's private connection."""
+
+    def data_root(self) -> Path:
+        root = super().data_root()
+        # Hooks receive all three values from Codex. The MCP child does not
+        # receive PLUGIN_DATA, so publish the observed path under CODEX_HOME.
+        plugin_data = os.environ.get("PLUGIN_DATA")
+        plugin_root = os.environ.get("PLUGIN_ROOT")
+        codex_home = os.environ.get("CODEX_HOME")
+        if plugin_data and plugin_root and codex_home:
+            # An advisory hook must not prevent the user's session from
+            # continuing. The MCP process will refuse an absent locator.
+            with suppress(DataLocatorError):
+                publish_data_root(codex_home, plugin_root, plugin_data)
+        return root
 
     def _connection(self) -> tuple[str, str] | None:
         path = self.data_root() / "connection.json"
@@ -94,6 +110,15 @@ _runtime = CodexRuntime(
     default_data_root=_bootstrap_data_root(),
 )
 
+
+def bind_installed_mcp_data_root() -> None:
+    """Resolve MCP state from its exact installed root or refuse startup."""
+    codex_home = os.environ.get("CODEX_HOME")
+    if not codex_home or os.environ.get("PLUGIN_DATA"):
+        raise DataLocatorError("plugin_data_locator_unavailable")
+    _runtime.default_data_root = resolve_data_root(codex_home, os.getcwd())
+
+
 # Module-level handles imported by the entry points. Re-exported here so
 # downstream tests can monkey-patch them without touching sys.modules.
 runtime = _runtime
@@ -110,6 +135,7 @@ require_owned_namespace = _runtime.require_owned_namespace
 __all__ = [
     "RuntimeConfig",
     "RuntimeConfigError",
+    "bind_installed_mcp_data_root",
     "data_root",
     "harness_bin",
     "local_tool_environment",

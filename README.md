@@ -70,12 +70,9 @@ then trust those exact definitions. Codex does not auto-trust newly installed
 command hooks. Run `musubi-codex-session-start` in the same shell to check its
 local continuity output before relying on the hook.
 
-**Transport limit when using `musubi-harness` 1.0.1:** the Python commands can install
-and the Stop hook can write to the local shadow outbox, but remote Musubi
-capture and recall still require the private `memory-data` binary. On a clean
-machine without that binary, session start reports `memory_data_unavailable`.
-That means the service was not reached; it does not mean the memory set is
-empty. Upgrade to `musubi-harness` 1.1.0 for the bundled HTTP transport.
+The package requires `musubi-harness` 1.1 or later. Its bundled HTTP transport
+can reach Musubi without the private operator `memory-data` binary. A missing
+connection reports unavailable; it does not mean the memory set is empty.
 
 With the bundled HTTP transport in `musubi-harness` 1.1.0, put the Musubi
 connection in `connection.json` in the **same installed plugin data directory**
@@ -102,6 +99,13 @@ Codex, not this package, assigns `PLUGIN_DATA` to an installed hook. Codex CLI
 0.157.1 assigned `CODEX_HOME/plugins/data/musubi-codex-musubi-codex` in our
 isolated proof; that path shape is an observation, not a stable setup API.
 Inspect the hook's actual data directory before placing `connection.json`.
+The hook records that directory in an owner-only locator keyed by its installed
+plugin root. The MCP manifest runs from that root and forwards `CODEX_HOME`,
+so the MCP server uses the same directory. A locator expires after ten minutes;
+start a new session to refresh it. If it is absent, stale, or points outside
+Codex's plugin data tree, the MCP server refuses startup with
+`plugin_data_locator_unavailable` or `plugin_data_locator_invalid`. It does not
+read a guessed `~/.codex` path.
 After a completed shadow-captured turn, locate its `shadow.db` without
 exposing the token. The plugin data directory is three levels above that file
 (`.../<plugin-data>/<actor>/<zone>/shadow.db`):

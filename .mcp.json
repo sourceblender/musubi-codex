@@ -2,7 +2,9 @@
   "mcpServers": {
     "musubi-codex": {
       "command": "musubi-codex-mcp",
+      "cwd": ".",
       "env_vars": [
+        "CODEX_HOME",
         "MUSUBI_ACTOR",
         "MUSUBI_PRESENCE",
         "MUSUBI_ZONE",

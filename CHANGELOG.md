@@ -6,12 +6,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-26
+
 ### Added
 
 - The bundled Musubi HTTP client receives its URL and seat JWT from an
   owner-only `connection.json` in Codex's plugin data directory. Ambient
   connection variables are ignored for that client; the existing operator
   `memory-data` transport keeps its configuration.
+- Installed hooks publish their host-assigned plugin data directory in a
+  short-lived, owner-only locator keyed by the installed plugin root. The MCP
+  child resolves that exact directory or refuses startup; it never guesses a
+  different checkout's state.
+
+### Changed
+
+- Require `musubi-harness>=1.1,<2` for the public HTTP transport and the
+  local-only subprocess credential boundary.
 
 ## [0.3.0] - 2026-09-26
 
