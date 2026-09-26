@@ -1,0 +1,24 @@
+{
+  "checks": {
+    "partial_identity_refused": true,
+    "partial_transport_refused": true,
+    "stale_root_ignored": true,
+    "tama_identity": true,
+    "tama_local_scrub": true,
+    "tama_own_transport": true,
+    "tama_public_bins": true,
+    "tama_recall_on": true,
+    "tama_verified": true,
+    "yua_identity": true,
+    "yua_local_scrub": true,
+    "yua_own_transport": true,
+    "yua_public_bins": true,
+    "yua_recall_off": true,
+    "yua_shadow": true
+  },
+  "code_sha": "ee88b73c2452f745f9eb9c0fd958129de93fe108",
+  "passed": true,
+  "probe_sha256": "8a3c33081389bc090074e143cea8348337205a2e6467f300faea60bfc20416ae",
+  "schema_version": 1,
+  "scope": "Codex adapter subprocesses sharing one synthetic PLUGIN_DATA; no Codex host or live Musubi"
+}

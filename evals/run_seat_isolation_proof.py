@@ -28,8 +28,10 @@ try:
     result["actor"] = config.actor
     result["presence"] = config.presence
     result["delivery_mode"] = config.delivery_mode
-    result["harness_name"] = os.path.basename(runtime.harness_bin(config))
-    result["memory_data_name"] = os.path.basename(runtime.memory_data_bin(config))
+    harness = runtime.harness_bin(config)
+    memory_data = runtime.memory_data_bin(config)
+    result["harness_is_installed"] = harness == os.path.join(os.path.dirname(os.sys.executable), "musubi-harness")
+    result["memory_data_is_installed"] = memory_data == os.path.join(os.path.dirname(os.sys.executable), "musubi-memory-data")
     remote = runtime.tool_environment(config)
     local = runtime.local_tool_environment(config)
     result["remote_uses_seat_token"] = remote.get("MUSUBI_TOKEN") == os.environ.get("MUSUBI_TOKEN")
@@ -87,6 +89,10 @@ def _seat(
         "MUSUBI_ZONE": "home",
         "MUSUBI_API_URL": f"https://{actor}.invalid",
         "MUSUBI_TOKEN": f"synthetic-{actor}-token",
+        # Current seat launchers still set both legacy pins. A seat connection
+        # must use the public client and harness even before launcher cleanup.
+        "MUSUBI_HARNESS_BIN": "/legacy/musubi-harness",
+        "MUSUBI_MEMORY_DATA_BIN": "/legacy/memory-data",
         "MUSUBI_DELIVERY_MODE": delivery,
         "MUSUBI_PROMPT_RECALL": recall,
     }
@@ -132,16 +138,16 @@ def main() -> int:
         "yua_own_transport": yua.get("remote_uses_seat_token") is True
         and yua.get("remote_uses_seat_url") is True,
         "yua_local_scrub": yua.get("local_has_no_transport") is True,
-        "yua_public_bins": yua.get("harness_name") == "musubi-harness"
-        and yua.get("memory_data_name") == "musubi-memory-data",
+        "yua_public_bins": yua.get("harness_is_installed") is True
+        and yua.get("memory_data_is_installed") is True,
         "tama_identity": tama.get("actor") == "tama" and tama.get("presence") == "tama/codex",
         "tama_verified": tama.get("delivery_mode") == "verified",
         "tama_recall_on": tama.get("recall_enabled") is True,
         "tama_own_transport": tama.get("remote_uses_seat_token") is True
         and tama.get("remote_uses_seat_url") is True,
         "tama_local_scrub": tama.get("local_has_no_transport") is True,
-        "tama_public_bins": tama.get("harness_name") == "musubi-harness"
-        and tama.get("memory_data_name") == "musubi-memory-data",
+        "tama_public_bins": tama.get("harness_is_installed") is True
+        and tama.get("memory_data_is_installed") is True,
         "stale_root_ignored": stale_root.get("actor") == "yua"
         and stale_root.get("delivery_mode") == "shadow",
         "partial_identity_refused": partial_identity.get("error")
