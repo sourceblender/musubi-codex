@@ -1,0 +1,49 @@
+{
+  "checks": {
+    "bounded_long_rows_bounded_timeout": true,
+    "bounded_long_rows_query_scope": true,
+    "conflicting_decisions_shown_with_relative_recency": true,
+    "conflicting_ranked_decisions_bounded_timeout": true,
+    "conflicting_ranked_decisions_query_scope": true,
+    "context_bound_and_complete_rows": true,
+    "cross_scope_bounded_timeout": true,
+    "cross_scope_query_scope": true,
+    "cross_scope_refused": true,
+    "degraded_empty_bounded_timeout": true,
+    "degraded_empty_query_scope": true,
+    "degraded_is_unavailable": true,
+    "healthy_empty_bounded_timeout": true,
+    "healthy_empty_is_distinct": true,
+    "healthy_empty_query_scope": true,
+    "missing_namespace_bounded_timeout": true,
+    "missing_namespace_query_scope": true,
+    "missing_namespace_refused": true,
+    "missing_state_bounded_timeout": true,
+    "missing_state_query_scope": true,
+    "missing_state_refused": true,
+    "opt_out_makes_no_search": true,
+    "poisoned_content_is_one_quoted_untrusted_row": true,
+    "poisoned_row_bounded_timeout": true,
+    "poisoned_row_query_scope": true,
+    "provisional_bounded_timeout": true,
+    "provisional_query_scope": true,
+    "provisional_refused": true
+  },
+  "fixture_sha256": "cab43a1443eb057c4ee26e5624ea7c18921d3ab37428a98bf18c5599ebfa609d",
+  "harness_source": "PyPI",
+  "harness_version": "1.1.1",
+  "live_compact_proof": "not_run",
+  "observations": {
+    "bounded_context_chars": 921,
+    "conflicting_row_order": [
+      "amber",
+      "blue"
+    ]
+  },
+  "passed": true,
+  "plugin_head": "c92b23bb470ddd8caa51e72b31d5c1e94a9e39bd",
+  "plugin_version": "0.4.0",
+  "python": "3.12.13",
+  "schema_version": 1,
+  "scope": "synthetic_Codex_UserPromptSubmit_recall_boundary"
+}

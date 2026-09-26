@@ -1,0 +1,23 @@
+{
+  "checks": {
+    "bounded_context": true,
+    "bundled_client_resolved": true,
+    "exact_endpoint": true,
+    "exact_namespace": true,
+    "honest_recency": true,
+    "hook_exited_zero": true,
+    "installed_command_resolved": true,
+    "no_token_in_hook_output": true,
+    "one_request": true,
+    "settled_filter": true,
+    "stage_created": true,
+    "token_to_only_local_server": true
+  },
+  "context_chars": 380,
+  "fixture_sha256": "cab43a1443eb057c4ee26e5624ea7c18921d3ab37428a98bf18c5599ebfa609d",
+  "passed": true,
+  "real_Codex_host_injection": "not_run",
+  "request_count": 1,
+  "schema_version": 1,
+  "scope": "installed_UserPromptSubmit_executable_fake_HTTP"
+}
