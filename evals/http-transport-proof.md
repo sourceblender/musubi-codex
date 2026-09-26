@@ -71,6 +71,15 @@ proves that the two processes resolve the same data directory. The local gate
 above sets `PLUGIN_DATA` explicitly and cannot close that host integration
 claim.
 
+The same frozen local gate also passed with `musubi-harness==1.1.0` installed
+from PyPI into a fresh Python 3.12.13 environment, and Codex #7 at `c2da6ab`
+installed as a built package from its checkout. The search path excluded the
+private operator. All 13 assertions passed: two configured requests used the
+file token, removing the file made no further request, and the redirect target
+received none. [Published-wheel receipt](results/http-transport-pypi-harness-1.1.0-codex-c2da6ab.json).
+This closes the published harness wheel gate only; the installed Codex host
+root and real-service readback remain open.
+
 ## Receipt
 
 Record exact plugin and harness versions/commits, Codex CLI version, hook
