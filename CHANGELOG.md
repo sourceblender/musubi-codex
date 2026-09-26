@@ -18,7 +18,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   short-lived, owner-only locator keyed by the installed plugin root. The MCP
   child resolves that exact directory per tool call or reports unavailable;
   it never guesses a different checkout's state. Tool discovery remains
-  available when Codex starts MCP before its SessionStart hook.
+  available when Codex starts MCP before its SessionStart hook. A bounded
+  startup wait covers Codex's first-session hook/MCP race.
 
 ### Changed
 

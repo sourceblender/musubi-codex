@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import Iterable
+from contextlib import suppress
 from typing import Any, TextIO
 
 from musubi_harness.plugin_mcp import (
@@ -50,6 +51,12 @@ def _unavailable(request_id: object, detail: str) -> dict[str, Any]:
 def serve(*, stdin: Iterable[str], stdout: TextIO) -> int:
     """Advertise tools before hooks run; resolve host data for each call."""
     use_installed_mcp_locator()
+    # Codex CLI 0.157.1 starts MCP and SessionStart concurrently, but a tool
+    # call can run before the hook if MCP answers initialize immediately. A
+    # bounded startup wait gives the hook time to publish its locator. If it
+    # never does, discovery still succeeds and calls report unavailable.
+    with suppress(DataLocatorError):
+        runtime.data_root()
     # initialize, ping and tools/list do not use the runtime config. Give the
     # shared protocol handler a valid placeholder for those methods only.
     placeholder = RuntimeConfig(actor="unavailable", presence="unavailable/mcp", zone="home")

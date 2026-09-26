@@ -109,7 +109,9 @@ Codex's plugin data tree, the MCP server still advertises its tools, but a
 tool call reports `plugin_data_locator_unavailable` or
 `plugin_data_locator_invalid` until a hook publishes a valid locator. It does
 not read a guessed plugin data directory. The first tool call waits up to three
-seconds for an absent locator while SessionStart runs; an invalid locator is
+seconds for an absent locator while SessionStart runs; MCP also makes this
+bounded attempt before answering tool discovery, because Codex can schedule a
+tool call before the hook if MCP initializes first. An invalid locator is
 refused immediately.
 After a completed shadow-captured turn, locate its `shadow.db` without
 exposing the token. The plugin data directory is three levels above that file

@@ -327,3 +327,39 @@ def test_first_mcp_bind_waits_for_missing_locator_only(
     with pytest.raises(DataLocatorError, match="invalid"):
         another.data_root()
     assert sleeps == [0.05, 0.05]
+
+
+def test_mcp_startup_waits_for_hook_locator_before_tool_discovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home, root, data = _installation(tmp_path)
+    publish_data_root(str(home), str(root), str(data))
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    monkeypatch.delenv("PLUGIN_DATA", raising=False)
+    monkeypatch.chdir(root)
+    monkeypatch.setattr(runtime, "_mcp_locator_mode", False)
+    attempts = 0
+    real_resolve = runtime_module.resolve_data_root
+
+    def delayed(codex_home: str, plugin_root: str) -> Path:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise DataLocatorError("plugin_data_locator_unavailable")
+        return real_resolve(codex_home, plugin_root)
+
+    monkeypatch.setattr(runtime_module, "resolve_data_root", delayed)
+    monkeypatch.setattr(runtime_module.time, "sleep", lambda _seconds: None)
+    output = io.StringIO()
+    assert (
+        mcp.serve(
+            stdin=io.StringIO(
+                json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}) + "\n"
+            ),
+            stdout=output,
+        )
+        == 0
+    )
+    assert attempts == 3
+    assert runtime.data_root() == data
+    assert json.loads(output.getvalue())["result"]["tools"]
