@@ -68,12 +68,7 @@ def _rows(payload: Any, namespace: str) -> list[dict[str, Any]]:
         extra = row.get("extra")
         components = extra.get("score_components") if isinstance(extra, dict) else None
         recency = components.get("recency") if isinstance(components, dict) else None
-        if (
-            isinstance(recency, bool)
-            or not isinstance(recency, (int, float))
-            or not math.isfinite(recency)
-            or not 0 <= recency <= 1
-        ):
+        if not isinstance(recency, float) or not math.isfinite(recency) or not 0 <= recency <= 1:
             raise ValueError("prompt_recall_response_invalid")
     return value[:MAX_RESULTS]
 
