@@ -29,7 +29,7 @@
           {
             "type": "command",
             "command": "musubi-codex-stop",
-            "timeout": 30
+            "timeout": 60
           }
         ]
       }
