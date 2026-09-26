@@ -86,8 +86,9 @@ as `config.json`:
 ```
 
 The file must be owned by the current user and readable only by that user
-(`chmod 600 connection.json`). The hook passes its values only to the bundled
-HTTP client's child process. It does not use ambient `MUSUBI_API_URL` or
+(`chmod 600 connection.json`). The hook passes its values only to subprocesses
+that may call the bundled HTTP client; local staging gets no connection secret.
+It does not use ambient `MUSUBI_API_URL` or
 `MUSUBI_TOKEN` for that client. A missing or invalid file reports an unavailable
 connection; it never means the memory set is empty. Receipt lookup requires a
 seat JWT, not an opaque API token. Shadow capture remains the default; choose

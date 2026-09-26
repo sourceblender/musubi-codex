@@ -70,6 +70,22 @@ def test_operator_transport_keeps_its_existing_environment(
     assert env["MUSUBI_TOKEN"] == "operator-secret"
 
 
+def test_local_stage_does_not_receive_connection_credentials(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = _runtime(tmp_path)
+    monkeypatch.setenv("MUSUBI_API_URL", "https://ambient.invalid")
+    monkeypatch.setenv("MUSUBI_TOKEN", "ambient-secret")
+    _write(
+        tmp_path / "connection.json", {"api_url": "https://musubi.example", "token": "file-secret"}
+    )
+
+    env = runtime.local_tool_environment(_config())
+
+    assert "MUSUBI_API_URL" not in env
+    assert "MUSUBI_TOKEN" not in env
+
+
 @pytest.mark.parametrize(
     "value",
     [

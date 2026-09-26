@@ -64,15 +64,20 @@ class CodexRuntime(PluginRuntime):
         return value["api_url"], value["token"]
 
     def _codex_tool_environment(self, config: RuntimeConfig) -> dict[str, str]:
-        env = PluginRuntime.tool_environment(config)
+        env = self.local_tool_environment(config)
         if Path(self.memory_data_bin(config)).name != "musubi-memory-data":
-            return env
-        # Never inherit ambient credentials into the public HTTP transport.
-        env.pop("MUSUBI_API_URL", None)
-        env.pop("MUSUBI_TOKEN", None)
+            return PluginRuntime.tool_environment(config)
         connection = self._connection()
         if connection is not None:
             env["MUSUBI_API_URL"], env["MUSUBI_TOKEN"] = connection
+        return env
+
+    @staticmethod
+    def local_tool_environment(config: RuntimeConfig) -> dict[str, str]:
+        """Run local-only harness commands without HTTP credentials."""
+        env = PluginRuntime.tool_environment(config)
+        env.pop("MUSUBI_API_URL", None)
+        env.pop("MUSUBI_TOKEN", None)
         return env
 
     @staticmethod
@@ -96,6 +101,7 @@ runtime_config = _runtime.runtime_config
 harness_bin = _runtime.harness_bin
 memory_data_bin = _runtime.memory_data_bin
 tool_environment = _runtime.tool_environment
+local_tool_environment = _runtime.local_tool_environment
 require_owned_namespace = _runtime.require_owned_namespace
 
 
@@ -104,6 +110,7 @@ __all__ = [
     "RuntimeConfigError",
     "data_root",
     "harness_bin",
+    "local_tool_environment",
     "memory_data_bin",
     "plugin_config",
     "require_owned_namespace",
