@@ -61,6 +61,13 @@ def _rows(payload: Any, namespace: str) -> list[dict[str, Any]]:
                 for row in value
             ):
                 raise ValueError("prompt_recall_scope_mismatch")
+            if any(
+                isinstance(row, dict)
+                and "state" in row
+                and row["state"] not in {"matured", "promoted"}
+                for row in value
+            ):
+                raise ValueError("prompt_recall_state_mismatch")
             return [row for row in value if isinstance(row, dict)][:MAX_RESULTS]
     raise ValueError("prompt_recall_response_invalid")
 
