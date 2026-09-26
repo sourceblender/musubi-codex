@@ -1,0 +1,20 @@
+{
+  "name": "musubi-codex",
+  "interface": {
+    "displayName": "Musubi for Codex"
+  },
+  "plugins": [
+    {
+      "name": "musubi-codex",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
