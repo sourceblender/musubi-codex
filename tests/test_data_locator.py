@@ -136,3 +136,25 @@ def test_mcp_startup_binds_hook_data_root(tmp_path: Path, monkeypatch: pytest.Mo
     monkeypatch.setattr(runtime, "default_data_root", tmp_path / "wrong-fallback")
     assert mcp.main() == 0
     assert runtime.data_root() == data
+
+
+def test_default_codex_home_works_without_exported_codex_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_home = tmp_path / "user"
+    home = user_home / ".codex"
+    root = home / "plugins" / "cache" / "one"
+    data = home / "plugins" / "data" / "one"
+    root.mkdir(parents=True)
+    data.mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(user_home))
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    monkeypatch.setenv("PLUGIN_ROOT", str(root))
+    monkeypatch.setenv("PLUGIN_DATA", str(data))
+    assert CodexRuntime("musubi-codex").data_root() == data
+    monkeypatch.delenv("PLUGIN_DATA")
+    monkeypatch.chdir(root)
+    monkeypatch.setattr(mcp._facade, "serve", lambda: 0)
+    monkeypatch.setattr(runtime, "default_data_root", tmp_path / "wrong-fallback")
+    assert mcp.main() == 0
+    assert runtime.data_root() == data

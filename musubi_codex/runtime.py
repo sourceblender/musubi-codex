@@ -39,8 +39,8 @@ class CodexRuntime(PluginRuntime):
         # receive PLUGIN_DATA, so publish the observed path under CODEX_HOME.
         plugin_data = os.environ.get("PLUGIN_DATA")
         plugin_root = os.environ.get("PLUGIN_ROOT")
-        codex_home = os.environ.get("CODEX_HOME")
-        if plugin_data and plugin_root and codex_home:
+        codex_home = os.environ.get("CODEX_HOME") or str(Path.home() / ".codex")
+        if plugin_data and plugin_root:
             # An advisory hook must not prevent the user's session from
             # continuing. The MCP process will refuse an absent locator.
             with suppress(DataLocatorError):
@@ -113,8 +113,8 @@ _runtime = CodexRuntime(
 
 def bind_installed_mcp_data_root() -> None:
     """Resolve MCP state from its exact installed root or refuse startup."""
-    codex_home = os.environ.get("CODEX_HOME")
-    if not codex_home or os.environ.get("PLUGIN_DATA"):
+    codex_home = os.environ.get("CODEX_HOME") or str(Path.home() / ".codex")
+    if os.environ.get("PLUGIN_DATA"):
         raise DataLocatorError("plugin_data_locator_unavailable")
     _runtime.default_data_root = resolve_data_root(codex_home, os.getcwd())
 

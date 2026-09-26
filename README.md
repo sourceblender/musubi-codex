@@ -100,8 +100,9 @@ Codex, not this package, assigns `PLUGIN_DATA` to an installed hook. Codex CLI
 isolated proof; that path shape is an observation, not a stable setup API.
 Inspect the hook's actual data directory before placing `connection.json`.
 The hook records that directory in an owner-only locator keyed by its installed
-plugin root. The MCP manifest runs from that root and forwards `CODEX_HOME`,
-so the MCP server uses the same directory. A locator expires after ten minutes;
+plugin root. The MCP manifest runs from that root and forwards `CODEX_HOME`
+when set; otherwise both processes use Codex's default `~/.codex`. The MCP
+server then uses the same directory. A locator expires after ten minutes;
 start a new session to refresh it. If it is absent, stale, or points outside
 Codex's plugin data tree, the MCP server refuses startup with
 `plugin_data_locator_unavailable` or `plugin_data_locator_invalid`. It does not
