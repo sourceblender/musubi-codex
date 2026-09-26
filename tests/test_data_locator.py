@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+import musubi_codex.runtime as runtime_module
 from musubi_codex import mcp
 from musubi_codex.data_locator import (
     DataLocatorError,
@@ -123,6 +124,7 @@ def test_mcp_advertises_tools_before_hook_locator_exists(
     home, root, _data = _installation(tmp_path)
     monkeypatch.setenv("CODEX_HOME", str(home))
     monkeypatch.delenv("PLUGIN_DATA", raising=False)
+    monkeypatch.setattr(runtime_module, "MCP_BIND_WAIT_SECONDS", 0)
     for name in ("MUSUBI_ACTOR", "MUSUBI_PRESENCE", "MUSUBI_ZONE"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.chdir(root)
@@ -161,6 +163,7 @@ def test_mcp_uses_hook_data_root_after_locator_appears(
     )
     monkeypatch.setenv("CODEX_HOME", str(home))
     monkeypatch.delenv("PLUGIN_DATA", raising=False)
+    monkeypatch.setattr(runtime_module, "MCP_BIND_WAIT_SECONDS", 0)
     for name in ("MUSUBI_ACTOR", "MUSUBI_PRESENCE", "MUSUBI_ZONE"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.chdir(root)
@@ -286,3 +289,41 @@ def test_bound_mcp_process_survives_locator_expiry_but_refuses_replaced_data_roo
     data.mkdir()
     with pytest.raises(DataLocatorError, match="invalid"):
         installed.data_root()
+
+
+def test_first_mcp_bind_waits_for_missing_locator_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home, root, data = _installation(tmp_path)
+    publish_data_root(str(home), str(root), str(data))
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    monkeypatch.delenv("PLUGIN_DATA", raising=False)
+    monkeypatch.chdir(root)
+    installed = CodexRuntime("musubi-codex")
+    installed._mcp_locator_mode = True
+    attempts = 0
+    sleeps: list[float] = []
+    real_resolve = runtime_module.resolve_data_root
+
+    def delayed(codex_home: str, plugin_root: str) -> Path:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise DataLocatorError("plugin_data_locator_unavailable")
+        return real_resolve(codex_home, plugin_root)
+
+    monkeypatch.setattr(runtime_module, "resolve_data_root", delayed)
+    monkeypatch.setattr(runtime_module.time, "sleep", sleeps.append)
+    assert installed.data_root() == data
+    assert attempts == 3
+    assert sleeps == [0.05, 0.05]
+
+    def invalid(_codex_home: str, _plugin_root: str) -> Path:
+        raise DataLocatorError("plugin_data_locator_invalid")
+
+    another = CodexRuntime("musubi-codex")
+    another._mcp_locator_mode = True
+    monkeypatch.setattr(runtime_module, "resolve_data_root", invalid)
+    with pytest.raises(DataLocatorError, match="invalid"):
+        another.data_root()
+    assert sleeps == [0.05, 0.05]

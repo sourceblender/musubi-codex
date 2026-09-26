@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import time
 from contextlib import suppress
 from pathlib import Path
 
@@ -20,6 +21,8 @@ from musubi_harness.plugin_runtime import (
 
 from . import CODEX_DATA_NAME, STATE_NAME
 from .data_locator import DataLocatorError, publish_data_root, resolve_data_root
+
+MCP_BIND_WAIT_SECONDS = 3.0
 
 
 def _bootstrap_data_root() -> Path:
@@ -52,7 +55,21 @@ class CodexRuntime(PluginRuntime):
                     raise DataLocatorError("plugin_data_locator_invalid")
                 return self._mcp_bound_root
             codex_home = os.environ.get("CODEX_HOME") or str(Path.home() / ".codex")
-            root = resolve_data_root(codex_home, os.getcwd())
+            deadline = time.monotonic() + MCP_BIND_WAIT_SECONDS
+            while True:
+                try:
+                    root = resolve_data_root(codex_home, os.getcwd())
+                    break
+                except DataLocatorError as exc:
+                    # Codex may start MCP and issue a first call while its
+                    # SessionStart hook is still publishing the locator.
+                    # Wait only for absence; invalid records fail immediately.
+                    if (
+                        str(exc) != "plugin_data_locator_unavailable"
+                        or time.monotonic() >= deadline
+                    ):
+                        raise
+                    time.sleep(0.05)
             try:
                 info = root.lstat()
             except OSError:
