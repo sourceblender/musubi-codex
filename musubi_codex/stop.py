@@ -466,9 +466,10 @@ def main() -> int:
         envelope = build_envelope(hook)
         configured = runtime_config()
         db = _data_root() / envelope["actor"] / envelope["zone"] / "shadow.db"
+        command = [_harness(), "--db", str(db), "enqueue"]
         retain_staged_prompt = True
         result = subprocess.run(
-            [_harness(), "--db", str(db), "enqueue"],
+            command,
             input=json.dumps(envelope),
             text=True,
             capture_output=True,
