@@ -4,6 +4,21 @@ All notable changes to `musubi-codex` are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-09-26
+
+### Added
+
+- Native `UserPromptSubmit` and `Stop` turn pairing for local shadow capture
+  without relying on Codex's unstable transcript format.
+- `Interrupt` cleanup for staged prompts. The existing transcript fallback
+  remains for blank-answer bridge receipts.
+
+### Changed
+
+- Staged prompts are owner-only files, removed after a completed enqueue or a
+  terminal turn without a final answer. An enqueue failure retains the prompt
+  for an explicit retry.
+
 ## [0.2.0] - 2026-09-26
 
 ### Changed

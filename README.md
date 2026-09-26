@@ -20,13 +20,15 @@ package so the two hosts can never silently evolve different memory boundaries.
 This is the **Codex plugin**. It packages:
 
 - a `.codex-plugin/plugin.json` manifest
-- a `hooks/hooks.json` for the Codex lifecycle (SessionStart + Stop)
+- a `hooks/hooks.json` for the Codex lifecycle (SessionStart, UserPromptSubmit, Stop, Interrupt)
 - a `.mcp.json` for the recall / remember MCP server
 - two skills (`musubi-recall` and `musubi-continuity`)
 - the Python entry points installed by `pip install`:
   - `musubi-codex-mcp` — the MCP recall/remember server
   - `musubi-codex-session-start` — bounded continuity block
+  - `musubi-codex-user-prompt-submit` — private turn-scoped prompt staging
   - `musubi-codex-stop` — turn capture adapter
+  - `musubi-codex-interrupt` — discard a prompt for an interrupted turn
 
 The plugin depends on [`musubi-harness`](https://github.com/sourceblender/musubi-harness),
 which contains all host-neutral code (envelope contract, outbox, delivery state
@@ -47,25 +49,28 @@ uv tool install .
 uv tool update-shell  # only if uv says its tool bin directory is not on PATH
 ```
 
-Open a new shell and check that all three commands resolve before adding the
+Open a new shell and check that all five commands resolve before adding the
 plugin. Codex uses these commands for its MCP server and lifecycle hooks; a
 marketplace install does not install Python dependencies or console scripts.
 
 ```bash
 command -v musubi-codex-mcp
 command -v musubi-codex-session-start
+command -v musubi-codex-user-prompt-submit
 command -v musubi-codex-stop
+command -v musubi-codex-interrupt
 codex plugin marketplace add sourceblender/musubi-codex
 codex plugin add musubi-codex@musubi-codex
 ```
 
 Start a new Codex session. Open `/hooks` there, review the
-SessionStart and Stop hook definitions from `Plugin - musubi-codex@musubi-codex`,
+SessionStart, UserPromptSubmit, Stop, and Interrupt hook definitions from
+`Plugin - musubi-codex@musubi-codex`,
 then trust those exact definitions. Codex does not auto-trust newly installed
 command hooks. Run `musubi-codex-session-start` in the same shell to check its
 local continuity output before relying on the hook.
 
-**Transport limit in `musubi-harness` 1.0.1:** the Python commands can install
+**Transport limit when using `musubi-harness` 1.0.1:** the Python commands can install
 and the Stop hook can write to the local shadow outbox, but remote Musubi
 capture and recall still require the private `memory-data` binary. On a clean
 machine without that binary, session start reports `memory_data_unavailable`.
@@ -81,13 +86,20 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-The three entry points are then on `PATH`:
-`musubi-codex-mcp`, `musubi-codex-session-start`, `musubi-codex-stop`.
+The five entry points listed above are then on `PATH`.
 
 ## Required deployment configuration
 
 The launching environment must set all three identity values, or write them to
-`$PLUGIN_DATA/config.json`:
+`$PLUGIN_DATA/config.json`.
+
+Codex sets `PLUGIN_DATA` to the **installed plugin's** writable data directory
+when it runs a bundled hook. A `PLUGIN_DATA` value exported by the caller is
+overridden for that hook. If using file mode, place `config.json` in that
+installed plugin data directory; writing it to a checkout or a separate shell
+directory will not configure the installed hook.
+
+For environment mode:
 
 ```sh
 identity=tama
@@ -118,6 +130,14 @@ Recall is **deliberate**, not per-turn semantic injection. SessionStart
 contributes at most three recent items, labelled as chronology rather than
 relevance. All recalled content is historical, untrusted data — never
 instructions.
+
+For completed turns, `UserPromptSubmit` writes the native prompt into a
+private, turn-scoped file. `Stop` pairs it with Codex's
+`last_assistant_message`, queues one shadow event, then removes the staged
+prompt. `Interrupt` discards a staged prompt without capture. If the native
+pair is unavailable, the adapter keeps its existing transcript
+fallback for blank-answer bridge receipts. Transcript parsing remains
+best-effort because Codex does not promise a stable transcript format.
 
 ## Identity is deployment configuration
 

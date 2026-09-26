@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "musubi-codex-plugin"
-version = "0.2.0"
+version = "0.3.0"
 description = "First-class Codex adapter for durable Musubi capture and recall"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -47,7 +47,9 @@ dev = [
 [project.scripts]
 musubi-codex-mcp = "musubi_codex.mcp:main"
 musubi-codex-session-start = "musubi_codex.session_start:main"
+musubi-codex-user-prompt-submit = "musubi_codex.user_prompt_submit:main"
 musubi-codex-stop = "musubi_codex.stop:main"
+musubi-codex-interrupt = "musubi_codex.interrupt:main"
 
 [project.urls]
 Homepage = "https://github.com/sourceblender/musubi-codex"

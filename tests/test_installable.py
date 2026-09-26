@@ -63,12 +63,15 @@ def test_plugin_installs_into_clean_venv() -> None:
         "import importlib.util; "
         "import sys; "
         "mods = ['musubi_codex', 'musubi_codex.stop', 'musubi_codex.mcp', "
-        "'musubi_codex.session_start', 'musubi_codex.runtime']; "
+        "'musubi_codex.session_start', 'musubi_codex.user_prompt_submit', "
+        "'musubi_codex.interrupt', 'musubi_codex.runtime']; "
         "ok = all(importlib.util.find_spec(m) is not None for m in mods); "
         "print('PLUGIN_OK' if ok else 'PLUGIN_MISSING'); "
         # Verify the entry points are reachable
         "import shutil; "
-        "eps = ['musubi-codex-mcp', 'musubi-codex-session-start', 'musubi-codex-stop']; "
+        "eps = ['musubi-codex-mcp', 'musubi-codex-session-start', "
+        "'musubi-codex-user-prompt-submit', 'musubi-codex-stop', "
+        "'musubi-codex-interrupt']; "
         "reachable = [name for name in eps if shutil.which(name)]; "
         "print('EPS:', ','.join(sorted(reachable)))"
     )
@@ -80,7 +83,9 @@ def test_plugin_installs_into_clean_venv() -> None:
     eps_line = lines[1]
     assert "musubi-codex-mcp" in eps_line, eps_line
     assert "musubi-codex-session-start" in eps_line, eps_line
+    assert "musubi-codex-user-prompt-submit" in eps_line, eps_line
     assert "musubi-codex-stop" in eps_line, eps_line
+    assert "musubi-codex-interrupt" in eps_line, eps_line
 
 
 def test_plugin_has_no_fleet_tools_dependency() -> None:
@@ -113,4 +118,6 @@ def test_plugin_adapter_imports_cleanly() -> None:
     importlib.import_module("musubi_codex.runtime")
     importlib.import_module("musubi_codex.mcp")
     importlib.import_module("musubi_codex.session_start")
+    importlib.import_module("musubi_codex.user_prompt_submit")
+    importlib.import_module("musubi_codex.interrupt")
     importlib.import_module("musubi_codex.stop")

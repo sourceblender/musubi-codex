@@ -11,6 +11,17 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "musubi-codex-user-prompt-submit",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
@@ -18,6 +29,17 @@
             "type": "command",
             "command": "musubi-codex-stop",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Interrupt": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "musubi-codex-interrupt",
+            "timeout": 3
           }
         ]
       }
