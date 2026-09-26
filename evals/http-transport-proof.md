@@ -138,8 +138,34 @@ excluded the private `memory-data` executable from `PATH`.
 The frozen disposable HTTP gate also passed 13/13 against the package built
 from `d683765`. [Transport
 receipt](results/http-transport-pypi-harness-1.1.0-codex-d683765.json).
-This establishes installed first-session discovery and the
-synthetic transport boundary; real Musubi receipt/readback remains open.
+This established installed first-session discovery and the synthetic
+transport boundary before the live canary below.
+
+Review added a malformed, owner-only `connection.json` control to that
+frozen gate. Against the old `0.2.0` baseline at `572953e` it failed: the ambient decoy
+received one request. Against #7 `d683765` it passed: the malformed file
+was refused and the decoy received zero requests. The revised gate passed
+14/14 on the candidate. [Red
+receipt](results/http-transport-baseline-malformed-572953e.json) and [green
+receipt](results/http-transport-pypi-harness-1.1.0-codex-d683765-malformed.json).
+
+The authorized one-object Musubi canary used an isolated installed plugin
+and a 24-hour credential limited to `tama/codex/episodic`. The first local
+attempt exposed an ambient identity override and queued a shadow event in
+an isolated home; it produced no remote object ID and that home was
+quarantined. A fresh home with the ambient identity variables removed was
+checked to resolve `tama`, `tama/codex`, `home`, and verified delivery before
+the single live write. `musubi_remember` returned verified, receipt lookup
+found the same object ID and request digest, and exact get returned all 138
+UTF-8 bytes with the frozen SHA-256. Replaying the same idempotency key
+returned that ID again with one local delivery row. The exact object was
+soft archived; get then reported `archived`, and normal recent recall
+returned no rows. Fast search returned backend 503 after archival, so it is
+not used as cleanup evidence. [Live canary
+receipt](results/http-transport-live-canary-codex-d683765.json). The live
+calls used the installed MCP executable and the host-published locator;
+the first-session Codex host call is covered by the separate three-home
+receipt above. Prompt-aware recall and `/compact` remain separate gates.
 
 ## Receipt
 

@@ -181,6 +181,16 @@ def main() -> int:
         checks["insecure_refused"] = insecure.get("isError") is True and not guarded.requests
 
         connection.unlink()
+        malformed = FakeMusubi()
+        with serve(malformed) as url:
+            os.environ["MUSUBI_API_URL"] = url
+            connection.write_text('{"api_url":', encoding="utf-8")
+            connection.chmod(0o600)
+            malformed_result = call_tool(configured, "musubi_status", {})
+        request_counts["malformed"] = len(malformed.requests)
+        checks["malformed_refused"] = malformed_result.get("isError") is True and not malformed.requests
+        connection.unlink()
+
         target = root / "target.json"
         _write_connection(target, "http://127.0.0.1:9", token)
         connection.symlink_to(target)
@@ -200,7 +210,7 @@ def main() -> int:
         checks["redirect_refused"] = refused.get("isError") is True and bool(redirect.requests) and not other.requests
         checks["no_token_in_errors"] = all(
             token not in json.dumps(value) and "ambient.decoy.sig" not in json.dumps(value)
-            for value in (missing, insecure, symlinked, refused)
+            for value in (missing, insecure, malformed_result, symlinked, refused)
         )
 
     receipt = {
