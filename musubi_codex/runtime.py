@@ -33,7 +33,12 @@ def _bootstrap_data_root() -> Path:
 class CodexRuntime(PluginRuntime):
     """Supply the bundled HTTP client with this plugin's private connection."""
 
+    _mcp_locator_mode = False
+
     def data_root(self) -> Path:
+        if self._mcp_locator_mode:
+            codex_home = os.environ.get("CODEX_HOME") or str(Path.home() / ".codex")
+            return resolve_data_root(codex_home, os.getcwd())
         root = super().data_root()
         # Hooks receive all three values from Codex. The MCP child does not
         # receive PLUGIN_DATA, so publish the observed path under CODEX_HOME.
@@ -111,12 +116,9 @@ _runtime = CodexRuntime(
 )
 
 
-def bind_installed_mcp_data_root() -> None:
-    """Resolve MCP state from its exact installed root or refuse startup."""
-    codex_home = os.environ.get("CODEX_HOME") or str(Path.home() / ".codex")
-    if os.environ.get("PLUGIN_DATA"):
-        raise DataLocatorError("plugin_data_locator_unavailable")
-    _runtime.default_data_root = resolve_data_root(codex_home, os.getcwd())
+def use_installed_mcp_locator() -> None:
+    """Resolve installed MCP state lazily, after Codex lifecycle hooks run."""
+    _runtime._mcp_locator_mode = True
 
 
 # Module-level handles imported by the entry points. Re-exported here so
@@ -135,7 +137,6 @@ require_owned_namespace = _runtime.require_owned_namespace
 __all__ = [
     "RuntimeConfig",
     "RuntimeConfigError",
-    "bind_installed_mcp_data_root",
     "data_root",
     "harness_bin",
     "local_tool_environment",
@@ -145,4 +146,5 @@ __all__ = [
     "runtime",
     "runtime_config",
     "tool_environment",
+    "use_installed_mcp_locator",
 ]

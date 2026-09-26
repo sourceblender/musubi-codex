@@ -16,8 +16,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `memory-data` transport keeps its configuration.
 - Installed hooks publish their host-assigned plugin data directory in a
   short-lived, owner-only locator keyed by the installed plugin root. The MCP
-  child resolves that exact directory or refuses startup; it never guesses a
-  different checkout's state.
+  child resolves that exact directory per tool call or reports unavailable;
+  it never guesses a different checkout's state. Tool discovery remains
+  available when Codex starts MCP before its SessionStart hook.
 
 ### Changed
 

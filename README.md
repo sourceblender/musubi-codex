@@ -104,9 +104,10 @@ plugin root. The MCP manifest runs from that root and forwards `CODEX_HOME`
 when set; otherwise both processes use Codex's default `~/.codex`. The MCP
 server then uses the same directory. A locator expires after ten minutes;
 start a new session to refresh it. If it is absent, stale, or points outside
-Codex's plugin data tree, the MCP server refuses startup with
-`plugin_data_locator_unavailable` or `plugin_data_locator_invalid`. It does not
-read a guessed `~/.codex` path.
+Codex's plugin data tree, the MCP server still advertises its tools, but a
+tool call reports `plugin_data_locator_unavailable` or
+`plugin_data_locator_invalid` until a hook publishes a valid locator. It does
+not read a guessed plugin data directory.
 After a completed shadow-captured turn, locate its `shadow.db` without
 exposing the token. The plugin data directory is three levels above that file
 (`.../<plugin-data>/<actor>/<zone>/shadow.db`):

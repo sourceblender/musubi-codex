@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import json
 import sys
+from collections.abc import Iterable
+from typing import Any, TextIO
 
 from musubi_harness.plugin_mcp import (
     SERVER_INSTRUCTIONS,
     PluginMcpFacade,
     tool_definitions,
 )
+from musubi_harness.plugin_runtime import RuntimeConfig, RuntimeConfigError
 
 from .data_locator import DataLocatorError
-from .runtime import bind_installed_mcp_data_root, runtime
+from .runtime import runtime, use_installed_mcp_locator
 
 _facade = PluginMcpFacade(
     runtime,
@@ -27,13 +31,60 @@ call_tool = _facade.call_tool
 response_for = _facade.response_for
 
 
+def serve(*, stdin: Iterable[str], stdout: TextIO) -> int:
+    """Advertise tools before hooks run; resolve host data for each call."""
+    use_installed_mcp_locator()
+    # initialize, ping and tools/list do not use the runtime config. Give the
+    # shared protocol handler a valid placeholder for those methods only.
+    placeholder = RuntimeConfig(actor="unavailable", presence="unavailable/mcp", zone="home")
+    for line in stdin:
+        try:
+            request = json.loads(line)
+            if not isinstance(request, dict):
+                raise ValueError
+            method = request.get("method")
+            params = request.get("params")
+            if (
+                method == "tools/call"
+                and request.get("id") is not None
+                and isinstance(params, dict)
+                and isinstance(params.get("name"), str)
+            ):
+                try:
+                    configured = runtime.runtime_config()
+                except (DataLocatorError, RuntimeConfigError) as exc:
+                    response: dict[str, Any] | None = {
+                        "jsonrpc": "2.0",
+                        "id": request.get("id"),
+                        "result": {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": json.dumps(
+                                        {"ok": False, "status": "unavailable", "detail": str(exc)}
+                                    ),
+                                }
+                            ],
+                            "isError": True,
+                        },
+                    }
+                else:
+                    response = _facade.response_for(request, configured)
+            else:
+                response = _facade.response_for(request, placeholder)
+        except (json.JSONDecodeError, ValueError):
+            response = {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32700, "message": "Parse error"},
+            }
+        if response is not None:
+            print(json.dumps(response, separators=(",", ":")), file=stdout, flush=True)
+    return 0
+
+
 def main() -> int:
-    try:
-        bind_installed_mcp_data_root()
-    except DataLocatorError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
-    return _facade.serve()
+    return serve(stdin=sys.stdin, stdout=sys.stdout)
 
 
 if __name__ == "__main__":

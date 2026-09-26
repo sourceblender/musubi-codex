@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import io
 import json
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -115,26 +117,90 @@ def test_mcp_manifest_forwards_home_and_uses_installed_root() -> None:
     assert "PLUGIN_ROOT" not in server["env_vars"]
 
 
-def test_mcp_startup_refuses_missing_locator(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+def test_mcp_advertises_tools_before_hook_locator_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     home, root, _data = _installation(tmp_path)
     monkeypatch.setenv("CODEX_HOME", str(home))
     monkeypatch.delenv("PLUGIN_DATA", raising=False)
+    for name in ("MUSUBI_ACTOR", "MUSUBI_PRESENCE", "MUSUBI_ZONE"):
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.chdir(root)
-    assert mcp.main() == 2
-    assert capsys.readouterr().err.strip() == "plugin_data_locator_unavailable"
+    monkeypatch.setattr(runtime, "_mcp_locator_mode", False)
+    requests = io.StringIO(
+        "\n".join(
+            json.dumps(value)
+            for value in (
+                {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "tools/call",
+                    "params": {"name": "musubi_status", "arguments": {}},
+                },
+            )
+        )
+        + "\n"
+    )
+    output = io.StringIO()
+    assert mcp.serve(stdin=requests, stdout=output) == 0
+    responses = [json.loads(line) for line in output.getvalue().splitlines()]
+    assert responses[0]["result"]["serverInfo"]["name"] == "musubi-codex"
+    assert any(tool["name"] == "musubi_status" for tool in responses[1]["result"]["tools"])
+    assert responses[2]["result"]["isError"] is True
+    assert "plugin_data_locator_unavailable" in responses[2]["result"]["content"][0]["text"]
 
 
-def test_mcp_startup_binds_hook_data_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_mcp_uses_hook_data_root_after_locator_appears(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     home, root, data = _installation(tmp_path)
-    publish_data_root(str(home), str(root), str(data))
+    (data / "config.json").write_text(
+        json.dumps({"actor": "proof", "presence": "proof/test", "zone": "home"})
+    )
     monkeypatch.setenv("CODEX_HOME", str(home))
     monkeypatch.delenv("PLUGIN_DATA", raising=False)
+    for name in ("MUSUBI_ACTOR", "MUSUBI_PRESENCE", "MUSUBI_ZONE"):
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.chdir(root)
-    monkeypatch.setattr(mcp._facade, "serve", lambda: 0)
+    monkeypatch.setattr(runtime, "_mcp_locator_mode", False)
     monkeypatch.setattr(runtime, "default_data_root", tmp_path / "wrong-fallback")
-    assert mcp.main() == 0
+    monkeypatch.setattr(
+        mcp._facade,
+        "call_tool",
+        lambda config, _name, _arguments: {
+            "structuredContent": {"actor": config.actor, "data_root": str(runtime.data_root())},
+            "isError": False,
+        },
+    )
+
+    def stream() -> Iterator[str]:
+        yield json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+        yield json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "musubi_status", "arguments": {}},
+            }
+        )
+        publish_data_root(str(home), str(root), str(data))
+        yield json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "musubi_status", "arguments": {}},
+            }
+        )
+
+    output = io.StringIO()
+    assert mcp.serve(stdin=stream(), stdout=output) == 0
+    responses = [json.loads(line) for line in output.getvalue().splitlines()]
+    assert responses[1]["result"]["isError"] is True
+    assert "plugin_data_locator_unavailable" in responses[1]["result"]["content"][0]["text"]
+    assert responses[2]["result"]["structuredContent"] == {"actor": "proof", "data_root": str(data)}
     assert runtime.data_root() == data
 
 
@@ -154,7 +220,16 @@ def test_default_codex_home_works_without_exported_codex_home(
     assert CodexRuntime("musubi-codex").data_root() == data
     monkeypatch.delenv("PLUGIN_DATA")
     monkeypatch.chdir(root)
-    monkeypatch.setattr(mcp._facade, "serve", lambda: 0)
+    monkeypatch.setattr(runtime, "_mcp_locator_mode", False)
     monkeypatch.setattr(runtime, "default_data_root", tmp_path / "wrong-fallback")
-    assert mcp.main() == 0
+    output = io.StringIO()
+    assert (
+        mcp.serve(
+            stdin=io.StringIO(
+                json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}) + "\n"
+            ),
+            stdout=output,
+        )
+        == 0
+    )
     assert runtime.data_root() == data
