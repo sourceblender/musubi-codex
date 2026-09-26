@@ -48,6 +48,28 @@ recipient, redirect refusal, and negative controls observable. The final
 canary uses a real Musubi instance with a dedicated test credential and reads
 back its own object. The local service does not substitute for that canary.
 
+## Local red/green observation
+
+The frozen fixture digest is `2a62b060aa9340a5d7ea51556382e709ae97874a10492c2fa53619b8b5fa12ef`.
+With `musubi-harness` 1.1.0 built from shared PR #3, the current Codex main
+`e5c154f` returned exit 1: zero requests reached the configured fake service,
+and status, continuity, and redirect assertions failed. [Baseline
+receipt](results/http-transport-baseline-e5c154f.json).
+
+The same fixture against Codex #7 source head `c2da6ab` returned exit 0: the
+fake service received two authorized requests with the file token despite
+planted ambient decoys; no request reached the redirect target. [Candidate
+receipt](results/http-transport-candidate-c2da6ab.json). Both packages were
+built from source into fresh Python 3.12 virtual environments. This is a
+local boundary proof, **not** the published-wheel or real-service canary.
+
+An installed Codex CLI 0.157.1 probe found a separate deployment gap: legacy
+plugin hooks received the host-assigned `PLUGIN_DATA`, but the bundled MCP
+process did not. The Codex team is holding #7 until one installed session
+proves that the two processes resolve the same data directory. The local gate
+above sets `PLUGIN_DATA` explicitly and cannot close that host integration
+claim.
+
 ## Receipt
 
 Record exact plugin and harness versions/commits, Codex CLI version, hook
