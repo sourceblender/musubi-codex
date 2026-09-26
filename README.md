@@ -91,7 +91,15 @@ The five entry points listed above are then on `PATH`.
 ## Required deployment configuration
 
 The launching environment must set all three identity values, or write them to
-`$PLUGIN_DATA/config.json`:
+`$PLUGIN_DATA/config.json`.
+
+Codex sets `PLUGIN_DATA` to the **installed plugin's** writable data directory
+when it runs a bundled hook. A `PLUGIN_DATA` value exported by the caller is
+overridden for that hook. If using file mode, place `config.json` in that
+installed plugin data directory; writing it to a checkout or a separate shell
+directory will not configure the installed hook.
+
+For environment mode:
 
 ```sh
 identity=tama
