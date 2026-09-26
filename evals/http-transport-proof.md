@@ -107,6 +107,16 @@ improved, while the first call still failed the installed-root gate. This
 observation is compatible with the same race; the event stream again does not
 expose the exact scheduling order.
 
+An instrumented clean install of #7 `634ca29` resolved the ordering question.
+The MCP process started first. SessionStart and UserPromptSubmit both received
+`PLUGIN_DATA`, `PLUGIN_ROOT`, and `CODEX_HOME`, but the directory named by
+`PLUGIN_DATA` did not exist at either hook start. It existed by Stop, after the
+shadow database was created. The first MCP call returned
+`plugin_data_locator_unavailable` despite the new wait. [Hook-order
+receipt](results/locator-hook-order-codex-634ca29.json). This supports a
+narrower cause: the early hooks cannot publish a locator while
+`publish_data_root` requires the not-yet-created directory.
+
 ## Receipt
 
 Record exact plugin and harness versions/commits, Codex CLI version, hook
