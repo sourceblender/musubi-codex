@@ -65,6 +65,14 @@ then trust those exact definitions. Codex does not auto-trust newly installed
 command hooks. Run `musubi-codex-session-start` in the same shell to check its
 local continuity output before relying on the hook.
 
+**Transport limit in `musubi-harness` 1.0.1:** the Python commands can install
+and the Stop hook can write to the local shadow outbox, but remote Musubi
+capture and recall still require the private `memory-data` binary. On a clean
+machine without that binary, session start reports `memory_data_unavailable`.
+That means the service was not reached; it does not mean the memory set is
+empty. A shared-harness HTTP transport is planned so an independent install
+can perform remote reads and writes without fleet-tools.
+
 ### As a Python package (for development)
 
 ```bash
