@@ -1,0 +1,63 @@
+# Native hook capture proof (draft contract)
+
+This proof targets the Codex adapter's primary-turn capture. It keeps the
+synthetic input fixed while the implementation changes. The normal path must
+use documented hook fields rather than parse `transcript_path`, whose format
+OpenAI describes as unstable. The existing transcript receipt path, if retained
+for blank final messages, is a separate compatibility claim.
+
+Official inputs: [Codex Hooks](https://learn.chatgpt.com/docs/hooks) documents
+`UserPromptSubmit.prompt` and `turn_id`, `Stop.last_assistant_message` and
+`turn_id`, `Interrupt.turn_id`, hook trust, and the unstable transcript format.
+
+## Frozen case
+
+[`fixtures/native-hook-stream-v1.json`](fixtures/native-hook-stream-v1.json)
+contains one main-thread turn, a wrong-turn Stop, a duplicate Stop, an
+interrupted turn, and a turn with no final message. The primary turn has
+`transcript_path: null` to make transcript dependence observable. All identities
+and text in the fixture are synthetic.
+
+Run the hook commands from a clean Python 3.12 environment with only published
+`musubi-codex-plugin` and `musubi-harness` installed. Use a temporary
+`PLUGIN_DATA/config.json` with actor `proof`, presence `proof/test`, zone
+`home`, and `delivery_mode: shadow`. No `memory-data` binary, Musubi service,
+or private fleet path is part of this capture proof.
+
+## Assertions
+
+1. The marketplace plugin's hook manifest registers `UserPromptSubmit`, `Stop`,
+   and `Interrupt` command hooks. Their commands are present in the separately
+   installed Python package.
+2. The matching prompt and final message produce exactly one shadow event with
+   event ID `codex:thr-proof-001:turn-proof-001` and **exact** fixture text in
+   `user_text` and `assistant_text`. The event belongs to `proof/home`.
+3. A wrong-turn Stop cannot borrow the pending prompt. A duplicate Stop does
+   not add a second event. An interrupted turn and a null-final Stop create no
+   completed-turn event.
+4. Hook commands exit without blocking Codex, reveal no prompt or answer on
+   stdout/stderr, and leave remote delivery disabled. The Stop hook returns
+   valid JSON (`{}`) on stdout.
+5. The hook state is bounded and scoped by both session and turn. A stale or
+   malformed pending prompt fails closed and records a local degradation reason.
+
+**Red proof before implementation:** the current 0.2.0 plugin has only
+`SessionStart` and `Stop`; its Stop path requires a nonempty transcript path.
+The frozen primary turn therefore cannot meet assertions 1 and 2. Preserve
+the observed failing result, then run the same fixture against the proposed
+implementation and preserve the passing result. Do not relax the fixture to
+match the code.
+
+## Live Codex proof after the fixture passes
+
+Install the built plugin from an isolated local marketplace into a fresh Codex
+home. Review and trust the exact plugin hook definitions in `/hooks`; Codex
+skips untrusted hooks. Start one ordinary main-thread Codex turn containing a
+unique marker and a short requested final answer. Read back its shadow event
+by exact event ID and compare both texts and the session/turn IDs. Run a second
+turn that is interrupted and verify no completed-turn event. Record Codex CLI
+version, plugin commit and hook hash, session/turn IDs, local event readback,
+and the hook trust state in a receipt with no secrets or private paths.
+
+This establishes local capture only. It does not prove remote Musubi delivery,
+semantic recall quality, or that every Codex surface invokes these hooks.
