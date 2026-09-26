@@ -60,6 +60,15 @@ the observed failing result, then run the same fixture against the proposed
 implementation and preserve the passing result. Do not relax the fixture to
 match the code.
 
+The CI gate was red-proofed on 2026-09-26. Before #5 merged, [PR #6 run
+36265759533](https://github.com/sourceblender/musubi-codex/actions/runs/36265759533)
+failed the `Native hook proof` step on Python 3.12 and 3.13: the manifest lacked
+`UserPromptSubmit` and `Interrupt`, the outbox had zero events, and the runner
+exited 1. After #5 merged, [run
+36265938620](https://github.com/sourceblender/musubi-codex/actions/runs/36265938620)
+passed the same step on both Pythons with one exact shadow event and zero
+pending prompts. The runner input was unchanged.
+
 ## Live Codex proof after the fixture passes
 
 Install the built plugin from an isolated local marketplace into a fresh Codex
