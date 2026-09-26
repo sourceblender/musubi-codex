@@ -1,0 +1,95 @@
+{
+  "degradation_reasons": [
+    "transcript_unavailable",
+    "transcript_unavailable",
+    "transcript_unavailable"
+  ],
+  "fixture_sha256": "0b3acc96a08582cb8d726de5e509a917ad9090f9264372e8c43ac3494d7eaaa9",
+  "hook_results": [
+    {
+      "event": "UserPromptSubmit",
+      "exit_code": 0,
+      "stdout_valid_json": true,
+      "stop_output_contract": true,
+      "text_leaked": false
+    },
+    {
+      "event": "Stop",
+      "exit_code": 0,
+      "stdout_valid_json": true,
+      "stop_output_contract": true,
+      "text_leaked": false
+    },
+    {
+      "event": "Stop",
+      "exit_code": 0,
+      "stdout_valid_json": true,
+      "stop_output_contract": true,
+      "text_leaked": false
+    },
+    {
+      "event": "Stop",
+      "exit_code": 0,
+      "stdout_valid_json": true,
+      "stop_output_contract": true,
+      "text_leaked": false
+    },
+    {
+      "event": "UserPromptSubmit",
+      "exit_code": 0,
+      "stdout_valid_json": true,
+      "stop_output_contract": true,
+      "text_leaked": false
+    },
+    {
+      "event": "Interrupt",
+      "exit_code": 0,
+      "stdout_valid_json": true,
+      "stop_output_contract": true,
+      "text_leaked": false
+    },
+    {
+      "event": "UserPromptSubmit",
+      "exit_code": 0,
+      "stdout_valid_json": true,
+      "stop_output_contract": true,
+      "text_leaked": false
+    },
+    {
+      "event": "Stop",
+      "exit_code": 0,
+      "stdout_valid_json": true,
+      "stop_output_contract": true,
+      "text_leaked": false
+    }
+  ],
+  "manifest_sha256": "3c6f35db219fed93c77d21caf833f972462a2450bb8b2596100fef51d5b4d962",
+  "missing_hooks": [],
+  "passed": true,
+  "pending_prompt_count": 0,
+  "schema": "musubi-codex-native-hook-proof-result-v1",
+  "scope": "Synthetic hook subprocesses against isolated Python install; no Codex host, no remote Musubi delivery.",
+  "shadow_event_count": 1,
+  "shadow_events": [
+    {
+      "actor": "proof",
+      "assistant_text": "Release note: checksum 7f3c is verified.",
+      "captured_at": "2026-09-26T19:11:20.035885Z",
+      "context": "primary",
+      "event_id": "codex:thr-proof-001:turn-proof-001",
+      "metadata": {
+        "capture_source": "native_hooks",
+        "model": "codex-proof",
+        "session_id": "thr-proof-001",
+        "turn_id": "turn-proof-001",
+        "workspace": "proof"
+      },
+      "plane": "episodic",
+      "presence": "proof/test",
+      "source": "codex",
+      "user_text": "Write a release note for checksum 7f3c.",
+      "zone": "home"
+    }
+  ],
+  "target_head": "3cac86f"
+}
