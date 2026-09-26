@@ -1,0 +1,33 @@
+{
+  "checks": {
+    "bundled_selected": true,
+    "continuity_empty_distinct": true,
+    "insecure_refused": true,
+    "installed_commands": true,
+    "missing_no_ambient_fallback": true,
+    "missing_unavailable": true,
+    "no_private_operator": true,
+    "no_token_in_errors": true,
+    "no_token_in_output": true,
+    "private_connection_used": true,
+    "redirect_refused": true,
+    "status": true,
+    "symlink_refused": true
+  },
+  "fixture_sha256": "2a62b060aa9340a5d7ea51556382e709ae97874a10492c2fa53619b8b5fa12ef",
+  "harness_source": "PyPI",
+  "harness_version": "1.1.0",
+  "passed": true,
+  "plugin_head": "d6837655613cbbfd6ca63be3244cf0c6b4ddcb69",
+  "plugin_source": "built package from exact PR head",
+  "python": "3.12.13",
+  "request_counts": {
+    "after_missing": 2,
+    "configured": 2,
+    "insecure": 0,
+    "redirect_origin": 1,
+    "redirect_target": 0
+  },
+  "schema_version": 1,
+  "scope": "disposable_http_boundary_only; real_Musubi_readback_pending"
+}

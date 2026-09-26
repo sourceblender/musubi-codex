@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "scope": "fresh_installed_Codex_first_session_without_Musubi_credential",
+  "codex_cli": "0.157.1",
+  "plugin_head": "d6837655613cbbfd6ca63be3244cf0c6b4ddcb69",
+  "plugin_version": "0.4.0",
+  "harness_version": "1.1.0",
+  "harness_source": "PyPI",
+  "python": "3.12.13",
+  "private_memory_data_on_path": false,
+  "hook_trust": "--dangerously-bypass-hook-trust in isolated homes",
+  "trials": [
+    {
+      "trial": 1,
+      "fresh_codex_home": true,
+      "diagnostic_wrapper": false,
+      "completed_mcp_tool_calls": 1,
+      "called_tool": "musubi_status",
+      "tool_status": "failed",
+      "agent_reported_unconfigured_url": true,
+      "locator_files_after_session": 1
+    },
+    {
+      "trial": 2,
+      "fresh_codex_home": true,
+      "diagnostic_wrapper": false,
+      "completed_mcp_tool_calls": 1,
+      "called_tool": "musubi_status",
+      "tool_status": "failed",
+      "agent_reported_unconfigured_url": true,
+      "locator_files_after_session": 1
+    },
+    {
+      "trial": 3,
+      "fresh_codex_home": true,
+      "diagnostic_wrapper": false,
+      "completed_mcp_tool_calls": 1,
+      "called_tool": "musubi_status",
+      "tool_status": "failed",
+      "agent_reported_unconfigured_url": true,
+      "locator_files_after_session": 1
+    }
+  ],
+  "first_session_discovery_verdict": "pass: 3 of 3 fresh homes called musubi_status and returned the expected unconfigured result",
+  "real_service_readback": "not_run: no dedicated test endpoint and key"
+}

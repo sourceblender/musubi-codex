@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "scope": "fresh_installed_Codex_first_session_without_Musubi_credential",
+  "codex_cli": "0.157.1",
+  "plugin_head": "e5d3113298064d709db34d5407cf571714140d76",
+  "plugin_version": "0.4.0",
+  "harness_version": "1.1.0",
+  "harness_source": "PyPI",
+  "python": "3.12.13",
+  "private_memory_data_on_path": false,
+  "trials": [
+    {
+      "trial": 1,
+      "fresh_codex_home": true,
+      "diagnostic_wrapper": false,
+      "completed_mcp_tool_calls": 1,
+      "called_tool": "musubi_status",
+      "agent_reported_tool_unavailable": false,
+      "locator_files_after_session": 1
+    },
+    {
+      "trial": 2,
+      "fresh_codex_home": true,
+      "diagnostic_wrapper": false,
+      "completed_mcp_tool_calls": 0,
+      "called_tool": null,
+      "agent_reported_tool_unavailable": true,
+      "locator_files_after_session": 1
+    },
+    {
+      "trial": 3,
+      "fresh_codex_home": true,
+      "diagnostic_wrapper": false,
+      "completed_mcp_tool_calls": 1,
+      "called_tool": "musubi_status",
+      "agent_reported_tool_unavailable": false,
+      "locator_files_after_session": 1
+    }
+  ],
+  "first_session_discovery_verdict": "fail: 1 of 3 fresh repeat homes had zero MCP calls",
+  "real_service_readback": "not_run"
+}

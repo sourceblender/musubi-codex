@@ -1,0 +1,57 @@
+{
+  "cleanup": {
+    "fast_search_status": "unavailable: backend 503; not used to claim cleanup",
+    "get_state_after": "archived",
+    "http_status": 200,
+    "method": "soft archive exact episodic object",
+    "normal_recent_contains_object": false,
+    "normal_recent_result_count": 0
+  },
+  "credential": {
+    "dedicated_test_token_present": true,
+    "endpoint_recorded": false,
+    "scope_claim": "tama/codex/episodic:rw",
+    "token_value_recorded": false
+  },
+  "delivery": {
+    "local_delivery_rows": 1,
+    "namespace": "tama/codex/episodic",
+    "object_id": "3JsnULfOtwXqpBu7zPfDIT7QXEk",
+    "status": "verified"
+  },
+  "exact_get_before_archive": {
+    "content_sha256_matches": true,
+    "namespace_matches": true,
+    "object_id_matches": true,
+    "state": "provisional"
+  },
+  "frozen_content": {
+    "sha256": "8011db0163f710c572059fe9252a2a53ad4132fc90ecc07e70b65dd9e479ef5d",
+    "utf8_bytes": 138
+  },
+  "harness_source": "PyPI",
+  "harness_version": "1.1.0",
+  "idempotent_replay": {
+    "one_local_delivery_row": true,
+    "same_object_id": true
+  },
+  "identity": {
+    "actor": "tama",
+    "namespace": "tama/codex/episodic",
+    "presence": "tama/codex",
+    "zone": "home"
+  },
+  "passed": true,
+  "plugin_head": "d6837655613cbbfd6ca63be3244cf0c6b4ddcb69",
+  "plugin_version": "0.4.0",
+  "preflight_note": "An earlier isolated home queued a shadow event under an ambient identity override; it never produced an object ID and was quarantined. The live write used a fresh home with all MUSUBI identity variables removed and runtime identity asserted before the call.",
+  "receipt_lookup": {
+    "namespace": "tama/codex/episodic",
+    "object_id": "3JsnULfOtwXqpBu7zPfDIT7QXEk",
+    "request_digest_matches_local": true,
+    "response_status": 202,
+    "status": "found"
+  },
+  "schema_version": 1,
+  "scope": "one_object_real_Musubi_Codex_MCP_canary"
+}

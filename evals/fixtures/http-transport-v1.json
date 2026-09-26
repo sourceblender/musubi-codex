@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "actor": "proof",
+  "presence": "proof/test",
+  "zone": "home",
+  "turn": {
+    "session_id": "http-proof-session-001",
+    "turn_id": "http-proof-turn-001",
+    "prompt": "For this synthetic transport test, answer: which route is blue?",
+    "final": "The archive route is blue."
+  },
+  "remember": {
+    "content": "Synthetic transport canary: the archive route is blue.",
+    "importance": 7,
+    "topics": ["transport-proof"],
+    "idempotency_key": "codex-http-transport-proof-v1"
+  }
+}

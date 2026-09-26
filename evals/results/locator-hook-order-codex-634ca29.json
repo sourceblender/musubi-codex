@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "scope": "fresh_installed_Codex_host_hook_order_without_Musubi_credential",
+  "codex_cli": "0.157.1",
+  "plugin_head": "634ca29a8e173e006e723249cc3efc3e9292e65e",
+  "plugin_version": "0.4.0",
+  "harness_version": "1.1.0",
+  "events": [
+    {"name": "mcp_start", "time_ns": 1790455675189237000, "plugin_data_env_present": false, "plugin_data_dir_exists": false, "plugin_root_env_present": false, "codex_home_env_present": true},
+    {"name": "SessionStart_start", "time_ns": 1790455677004577000, "plugin_data_env_present": true, "plugin_data_dir_exists": false, "plugin_root_env_present": true, "codex_home_env_present": true},
+    {"name": "UserPromptSubmit_start", "time_ns": 1790455677284598000, "plugin_data_env_present": true, "plugin_data_dir_exists": false, "plugin_root_env_present": true, "codex_home_env_present": true},
+    {"name": "Stop_start", "time_ns": 1790455688696775000, "plugin_data_env_present": true, "plugin_data_dir_exists": true, "plugin_root_env_present": true, "codex_home_env_present": true}
+  ],
+  "first_tool_call_result_detail": "plugin_data_locator_unavailable",
+  "credentials_used": false,
+  "verdict": "fail: host-assigned plugin data directory did not exist during SessionStart"
+}
