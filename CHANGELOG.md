@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-26
+
+### Fixed
+
+- Prompt-aware recall uses Musubi's deep ranked retrieval path. The live
+  service's fast path returned `BACKEND_UNAVAILABLE`; deep queries succeeded
+  in the same scoped tests. The subprocess deadline is 3.5 seconds and the
+  native hook bound is 6 seconds, while degraded responses still report
+  unavailable rather than an empty memory set.
+
 ## [0.5.0] - 2026-09-26
 
 ### Added

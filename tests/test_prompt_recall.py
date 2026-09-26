@@ -78,8 +78,10 @@ def test_recall_search_is_scoped_and_context_is_untrusted(
     assert isinstance(command, list)
     assert command[command.index("--namespace") + 1] == "yua/test/episodic"
     assert "--settled-only" in command and "--exact" in command
+    assert command[command.index("--mode") + 1] == "deep"
+    assert command[command.index("--timeout") + 1] == "3"
     assert observed["env"] == {"MUSUBI_TOKEN": "synthetic"}
-    assert observed["timeout"] == 2.5
+    assert observed["timeout"] == 3.5
 
 
 def test_recall_refuses_cross_scope_result(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

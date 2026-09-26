@@ -34,4 +34,4 @@ jobs:
       - name: Native hook proof
         run: python evals/run_native_hook_proof.py
       - name: Prompt recall proof
-        run: python evals/run_prompt_recall_proof.py
+        run: python evals/run_prompt_recall_deep_proof.py
