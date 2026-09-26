@@ -190,8 +190,10 @@ per-prompt lookup off. This setting does not enable remote memory writes.
 
 The `UserPromptSubmit` hook returns at most three settled matches and 1,200
 characters of labelled, untrusted context. It preserves Musubi's result order,
-includes object IDs for follow-up, and distinguishes a true empty result from
-an unavailable service. The hook still stages the prompt for `Stop` capture
+includes object IDs and a relative recency score for follow-up, and distinguishes
+a true empty result from an unavailable or degraded service. Ranked results do
+not include timestamps, so the score is not proof of the latest decision. The
+hook still stages the prompt for `Stop` capture
 if lookup fails. No transcript parsing is used.
 
 For completed turns, `UserPromptSubmit` writes the native prompt into a
