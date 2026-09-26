@@ -45,7 +45,7 @@ Python package first, in an environment whose console scripts are on the PATH
 used to launch Codex. Install the tagged release:
 
 ```bash
-uv tool install 'git+https://github.com/sourceblender/musubi-codex.git@v0.5.0'
+uv tool install 'git+https://github.com/sourceblender/musubi-codex.git@v0.5.1'
 uv tool update-shell  # only if uv says its tool bin directory is not on PATH
 ```
 
@@ -199,7 +199,7 @@ plugin sends up to the first 1,200 characters of each prompt to the configured
 Musubi service. Leave the file absent, or set `enabled` to `false`, to keep
 per-prompt lookup off. This setting does not enable remote memory writes.
 
-The `UserPromptSubmit` hook searches the configured presence's exact episodic
+The `UserPromptSubmit` hook uses deep ranked search in the configured presence's exact episodic
 namespace and returns at most three settled matches and 1,200
 characters of labelled, untrusted context. It preserves Musubi's result order,
 includes object IDs and a relative recency score for follow-up, and distinguishes

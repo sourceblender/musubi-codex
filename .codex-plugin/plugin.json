@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "musubi-codex",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "First-class Codex adapter for durable Musubi capture and recall. Shadow-only by default; verified delivery is an explicit deployment gate. Built on the open-source musubi-harness library so the Codex and Claude seats can never silently diverge.",
   "author": {
     "name": "Eric Mey",
