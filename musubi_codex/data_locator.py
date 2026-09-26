@@ -35,7 +35,7 @@ def _context(codex_home: str, plugin_root: str) -> tuple[Path, Path, Path]:
         raise DataLocatorError("plugin_data_locator_invalid")
     data_parent = home / "plugins" / "data"
     if not data_parent.is_dir():
-        raise DataLocatorError("plugin_data_locator_invalid")
+        raise DataLocatorError("plugin_data_locator_unavailable")
     digest = hashlib.sha256(os.fsencode(root)).hexdigest()
     return home, root, data_parent / ".musubi-codex-locators" / f"{digest}.json"
 
@@ -48,8 +48,39 @@ def _owned_directory(path: Path) -> bool:
     return stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid() and not info.st_mode & 0o077
 
 
+def _owned_data_directory(path: Path) -> bool:
+    """Accept Codex-created data dirs, which may be readable but not writable by peers."""
+    try:
+        info = path.lstat()
+    except OSError:
+        return False
+    return stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid() and not info.st_mode & 0o022
+
+
 def publish_data_root(codex_home: str, plugin_root: str, plugin_data: str) -> None:
     """Atomically publish the hook's actual data root for this installation."""
+    # The first SessionStart can run before Codex creates PLUGIN_DATA. Make
+    # only the host-assigned direct child, never a guessed fallback or an
+    # arbitrary path supplied through the environment.
+    try:
+        home_path = Path(codex_home).expanduser().resolve(strict=True)
+        data_path = Path(plugin_data).expanduser()
+        parent = home_path / "plugins" / "data"
+        if not data_path.is_absolute() or data_path.parent != parent:
+            raise DataLocatorError("plugin_data_locator_invalid")
+        plugins = parent.parent
+        plugins_info = plugins.lstat()
+        if not stat.S_ISDIR(plugins_info.st_mode) or plugins_info.st_uid != os.getuid():
+            raise DataLocatorError("plugin_data_locator_invalid")
+        parent.mkdir(mode=0o700, exist_ok=True)
+        parent_info = parent.lstat()
+        if not stat.S_ISDIR(parent_info.st_mode) or parent_info.st_uid != os.getuid():
+            raise DataLocatorError("plugin_data_locator_invalid")
+        data_path.mkdir(mode=0o700, exist_ok=True)
+        if not _owned_data_directory(data_path):
+            raise DataLocatorError("plugin_data_locator_invalid")
+    except (OSError, RuntimeError):
+        raise DataLocatorError("plugin_data_locator_invalid") from None
     home, root, locator = _context(codex_home, plugin_root)
     try:
         data = Path(plugin_data).expanduser().resolve(strict=True)

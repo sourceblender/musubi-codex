@@ -39,6 +39,21 @@ def test_hook_publishes_exact_root_for_mcp(tmp_path: Path, monkeypatch: pytest.M
     assert resolve_data_root(str(home), str(root)) == data
 
 
+def test_first_hook_creates_only_host_assigned_data_dir(tmp_path: Path) -> None:
+    home = tmp_path / "codex-home"
+    root = home / "plugins" / "cache" / "one"
+    root.mkdir(parents=True)
+    data = home / "plugins" / "data" / "one"
+    with pytest.raises(DataLocatorError, match="unavailable"):
+        resolve_data_root(str(home), str(root))
+    publish_data_root(str(home), str(root), str(data))
+    assert data.is_dir()
+    assert data.stat().st_mode & 0o077 == 0
+    assert resolve_data_root(str(home), str(root)) == data
+    with pytest.raises(DataLocatorError, match="invalid"):
+        publish_data_root(str(home), str(root), str(tmp_path / "outside"))
+
+
 def test_locator_is_keyed_to_installed_plugin_root(tmp_path: Path) -> None:
     home, first, first_data = _installation(tmp_path)
     _home, second, second_data = _installation(tmp_path, "two")
