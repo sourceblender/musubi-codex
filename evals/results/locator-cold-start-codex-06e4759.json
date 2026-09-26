@@ -19,7 +19,17 @@
     "tool_result_status": "unavailable",
     "tool_result_detail": "error: MUSUBI_API_URL is not configured"
   },
+  "repeat_control_after_locator_moved_aside": {
+    "mcp_tool_call_events": 0,
+    "agent_reported_tool_unavailable": true
+  },
+  "fresh_locator_with_three_second_mcp_wrapper_delay": {
+    "mcp_tool_call_events": 1,
+    "called_tool": "musubi_status",
+    "tool_result_status": "unavailable",
+    "tool_result_detail": "error: MUSUBI_API_URL is not configured"
+  },
   "verdict": "fail: first-session tool call not demonstrated",
-  "inference": "MCP may initialize before SessionStart publishes the locator; startup ordering needs direct confirmation",
+  "inference": "MCP startup races SessionStart locator publication; a disposable three-second delay allowed the first session tool call, but plugin code still lacks that wait",
   "credentials_used": false
 }

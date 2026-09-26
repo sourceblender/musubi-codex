@@ -90,7 +90,13 @@ with no connection configured it correctly returned `unavailable`.
 [Cold-start receipt](results/locator-cold-start-codex-06e4759.json). The
 paired observation suggests MCP initialized before SessionStart published the
 locator, but the event stream does not expose startup ordering directly. A
-first-session tool call remains unproved for the Codex code lane.
+first-session tool call remains unproved for the Codex code lane. The same
+missing-locator control was repeated and again produced zero MCP calls. In a
+third disposable run, a wrapper delayed only the MCP executable by three
+seconds. With the locator absent at launch, that first session emitted one
+`musubi_status` call and returned the expected unavailable result. This
+supports a startup race and shows a bounded wait is feasible; it is a probe
+wrapper, not a fix in #7.
 
 ## Receipt
 
