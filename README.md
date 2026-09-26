@@ -85,6 +85,11 @@ as `config.json`:
 The file must be owned by the current user and readable only by that user
 (`chmod 600 connection.json`). The hook passes its values only to subprocesses
 that may call the bundled HTTP client; local staging gets no connection secret.
+The shared harness prefers an installed operator `memory-data` over its bundled
+`musubi-memory-data`. On machines with both, set `memory_data_bin` in the
+owner-only `config.json` to the absolute path returned by
+`command -v musubi-memory-data` to use `connection.json`; also unset
+`MUSUBI_MEMORY_DATA_BIN`, which takes precedence over the file setting.
 It does not use ambient `MUSUBI_API_URL` or
 `MUSUBI_TOKEN` for that client. A missing or invalid file reports an unavailable
 connection; it never means the memory set is empty. Codex checks the file's
