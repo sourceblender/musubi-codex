@@ -34,11 +34,34 @@ class CodexRuntime(PluginRuntime):
     """Supply the bundled HTTP client with this plugin's private connection."""
 
     _mcp_locator_mode = False
+    _mcp_bound_root: Path | None = None
+    _mcp_bound_identity: tuple[int, int] | None = None
 
     def data_root(self) -> Path:
         if self._mcp_locator_mode:
+            if self._mcp_bound_root is not None:
+                try:
+                    info = self._mcp_bound_root.lstat()
+                except OSError:
+                    raise DataLocatorError("plugin_data_locator_invalid") from None
+                if (
+                    not stat.S_ISDIR(info.st_mode)
+                    or info.st_uid != os.getuid()
+                    or (info.st_dev, info.st_ino) != self._mcp_bound_identity
+                ):
+                    raise DataLocatorError("plugin_data_locator_invalid")
+                return self._mcp_bound_root
             codex_home = os.environ.get("CODEX_HOME") or str(Path.home() / ".codex")
-            return resolve_data_root(codex_home, os.getcwd())
+            root = resolve_data_root(codex_home, os.getcwd())
+            try:
+                info = root.lstat()
+            except OSError:
+                raise DataLocatorError("plugin_data_locator_invalid") from None
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+                raise DataLocatorError("plugin_data_locator_invalid")
+            self._mcp_bound_root = root
+            self._mcp_bound_identity = (info.st_dev, info.st_ino)
+            return root
         root = super().data_root()
         # Hooks receive all three values from Codex. The MCP child does not
         # receive PLUGIN_DATA, so publish the observed path under CODEX_HOME.
@@ -119,6 +142,8 @@ _runtime = CodexRuntime(
 def use_installed_mcp_locator() -> None:
     """Resolve installed MCP state lazily, after Codex lifecycle hooks run."""
     _runtime._mcp_locator_mode = True
+    _runtime._mcp_bound_root = None
+    _runtime._mcp_bound_identity = None
 
 
 # Module-level handles imported by the entry points. Re-exported here so

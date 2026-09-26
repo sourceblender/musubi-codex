@@ -102,8 +102,9 @@ Inspect the hook's actual data directory before placing `connection.json`.
 The hook records that directory in an owner-only locator keyed by its installed
 plugin root. The MCP manifest runs from that root and forwards `CODEX_HOME`
 when set; otherwise both processes use Codex's default `~/.codex`. The MCP
-server then uses the same directory. A locator expires after ten minutes;
-start a new session to refresh it. If it is absent, stale, or points outside
+server then uses the same directory. A locator must be fresh when MCP first
+binds; after that the MCP process keeps the verified directory for its session
+and refuses a replaced directory. If the locator is absent, stale, or points outside
 Codex's plugin data tree, the MCP server still advertises its tools, but a
 tool call reports `plugin_data_locator_unavailable` or
 `plugin_data_locator_invalid` until a hook publishes a valid locator. It does

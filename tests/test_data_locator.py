@@ -265,3 +265,24 @@ def test_locator_disappearing_during_tool_call_is_unavailable(
     response = json.loads(output.getvalue())
     assert response["result"]["isError"] is True
     assert "plugin_data_locator_unavailable" in response["result"]["content"][0]["text"]
+
+
+def test_bound_mcp_process_survives_locator_expiry_but_refuses_replaced_data_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home, root, data = _installation(tmp_path)
+    publish_data_root(str(home), str(root), str(data))
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    monkeypatch.delenv("PLUGIN_DATA", raising=False)
+    monkeypatch.chdir(root)
+    installed = CodexRuntime("musubi-codex")
+    installed._mcp_locator_mode = True
+    assert installed.data_root() == data
+    locator = next((home / "plugins" / "data" / ".musubi-codex-locators").glob("*.json"))
+    locator.unlink()
+    monkeypatch.setattr("musubi_codex.data_locator.time.time", lambda: 10**12)
+    assert installed.data_root() == data
+    data.rename(data.with_name("old-data"))
+    data.mkdir()
+    with pytest.raises(DataLocatorError, match="invalid"):
+        installed.data_root()
