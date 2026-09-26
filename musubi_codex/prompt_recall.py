@@ -92,12 +92,13 @@ def _render(rows: list[dict[str, Any]]) -> str:
         updated = row.get("updated_at") or row.get("created_at")
         date = _one_line(updated, 32) if updated else ""
         text = _one_line(content, MAX_CONTENT_CHARS)
-        lines.append(
-            f"- object_id={json.dumps(identity)} updated_at={json.dumps(date)} content={json.dumps(text, ensure_ascii=False)}"
-        )
+        line = f"- object_id={json.dumps(identity)} updated_at={json.dumps(date)} content={json.dumps(text, ensure_ascii=False)}"
+        if len("\n".join([*lines, line])) > MAX_CONTEXT_CHARS:
+            break
+        lines.append(line)
     if len(lines) == 1:
         raise ValueError("prompt_recall_response_invalid")
-    return "\n".join(lines)[:MAX_CONTEXT_CHARS]
+    return "\n".join(lines)
 
 
 def context_for(prompt: str) -> str | None:

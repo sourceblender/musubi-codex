@@ -157,3 +157,14 @@ def test_hook_returns_codex_context_without_losing_prompt_stage(
             "additionalContext": "bounded memory",
         }
     }
+
+
+def test_context_bound_preserves_complete_quoted_rows() -> None:
+    rows = [
+        {"object_id": "x" * 300, "updated_at": "2026-09-26T20:00:00Z", "content": "word " * 300}
+        for _ in range(3)
+    ]
+    context = prompt_recall._render(rows)
+    assert len(context) <= prompt_recall.MAX_CONTEXT_CHARS
+    for line in context.splitlines()[1:]:
+        assert line.endswith('"')
