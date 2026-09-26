@@ -168,10 +168,30 @@ The MCP facade exposes five tools, identical to every other Musubi adapter:
 
 `musubi_think` is intentionally absent.
 
-Recall is **deliberate**, not per-turn semantic injection. SessionStart
-contributes at most three recent items, labelled as chronology rather than
-relevance. All recalled content is historical, untrusted data — never
-instructions.
+Recall through MCP is deliberate. SessionStart contributes at most three
+recent items, labelled as chronology rather than relevance. All recalled
+content is historical, untrusted data — never instructions.
+
+### Optional prompt-aware recall
+
+To ask Musubi for settled, relevant memories before each user prompt, create
+`prompt_recall.json` beside `config.json` in Codex's installed plugin data
+directory:
+
+```json
+{"enabled": true}
+```
+
+Set the file to owner-only permissions (`chmod 600 prompt_recall.json`). The
+plugin sends up to the first 1,200 characters of each prompt to the configured
+Musubi service. Leave the file absent, or set `enabled` to `false`, to keep
+per-prompt lookup off. This setting does not enable remote memory writes.
+
+The `UserPromptSubmit` hook returns at most three settled matches and 1,200
+characters of labelled, untrusted context. It preserves Musubi's result order,
+includes object IDs for follow-up, and distinguishes a true empty result from
+an unavailable service. The hook still stages the prompt for `Stop` capture
+if lookup fails. No transcript parsing is used.
 
 For completed turns, `UserPromptSubmit` writes the native prompt into a
 private, turn-scoped file. `Stop` pairs it with Codex's
