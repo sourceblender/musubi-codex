@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import io
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 from musubi_harness.plugin_runtime import RuntimeConfig, RuntimeConfigError
 
+from musubi_codex.prompt_stage import store_prompt
 from musubi_codex.runtime import CodexRuntime
+from musubi_codex.stop import main as stop_main
 
 
 def _runtime(tmp_path: Path) -> CodexRuntime:
@@ -84,6 +89,63 @@ def test_local_stage_does_not_receive_connection_credentials(
 
     assert "MUSUBI_API_URL" not in env
     assert "MUSUBI_TOKEN" not in env
+
+
+def test_stop_subprocesses_scope_connection_to_drain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "config.json").write_text(
+        json.dumps(
+            {
+                "actor": "proof",
+                "presence": "proof/test",
+                "zone": "home",
+                "delivery_mode": "verified",
+                "memory_data_bin": "musubi-memory-data",
+            }
+        ),
+        encoding="utf-8",
+    )
+    _write(
+        tmp_path / "connection.json", {"api_url": "https://musubi.example", "token": "file-secret"}
+    )
+    monkeypatch.setenv("PLUGIN_DATA", str(tmp_path))
+    monkeypatch.setenv("MUSUBI_API_URL", "https://ambient.invalid")
+    monkeypatch.setenv("MUSUBI_TOKEN", "ambient-secret")
+    for name in ("MUSUBI_ACTOR", "MUSUBI_PRESENCE", "MUSUBI_ZONE"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr("musubi_codex.stop.harness_bin", lambda *_args: "musubi-harness")
+    monkeypatch.setattr("musubi_codex.stop.memory_data_bin", lambda *_args: "musubi-memory-data")
+    submitted = {"session_id": "s", "turn_id": "t", "prompt": "Remember the proof"}
+    store_prompt(submitted)
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(
+            json.dumps({"session_id": "s", "turn_id": "t", "last_assistant_message": "Done"})
+        ),
+    )
+    calls: list[tuple[list[str], dict[str, str]]] = []
+
+    def record(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        env = kwargs["env"]
+        assert isinstance(env, dict)
+        calls.append((argv, env))
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    monkeypatch.setattr("musubi_codex.stop.subprocess.run", record)
+
+    assert stop_main() == 0
+    assert len(calls) == 3
+    assert [
+        next(action for action in ("enqueue", "stage", "drain") if action in argv)
+        for argv, _env in calls
+    ] == ["enqueue", "stage", "drain"]
+    for _argv, env in calls[:2]:
+        assert "MUSUBI_API_URL" not in env
+        assert "MUSUBI_TOKEN" not in env
+    assert calls[2][1]["MUSUBI_API_URL"] == "https://musubi.example"
+    assert calls[2][1]["MUSUBI_TOKEN"] == "file-secret"
 
 
 @pytest.mark.parametrize(

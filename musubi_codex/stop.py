@@ -476,6 +476,7 @@ def main() -> int:
             capture_output=True,
             timeout=8,
             check=False,
+            env=local_tool_environment(configured),
         )
         if result.returncode != 0:
             raise AdapterError("shadow_enqueue_failed")
