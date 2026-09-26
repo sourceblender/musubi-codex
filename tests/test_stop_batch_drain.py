@@ -87,6 +87,26 @@ def test_old_harness_retries_only_the_original_one_row_drain(
     assert observed[-1][0] == observed[-2][0][:-4]
     assert observed[-1][1] == 15
     assert observed[-1][2] == observed[-2][2]
+    hooks = json.loads((Path(__file__).resolve().parents[1] / "hooks" / "hooks.json").read_text())
+    assert hooks["hooks"]["Stop"][0]["hooks"][0]["timeout"] > sum(row[1] for row in observed)
+
+
+def test_embedded_argparse_phrase_does_not_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    observed, degraded = _run_stop(
+        tmp_path,
+        monkeypatch,
+        capsys,
+        drain_results=[
+            (
+                2,
+                "backend failed: musubi-harness: error: unrecognized arguments: --max 5 --budget-seconds 3; delivery may have started",
+            ),
+        ],
+    )
+    assert len(observed) == 3
+    assert degraded == ["verified_delivery_failed"]
 
 
 def test_other_delivery_failure_never_retries(

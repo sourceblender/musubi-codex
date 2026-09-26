@@ -443,11 +443,16 @@ def delivery_commands(
 
 def _legacy_drain_retry(command: list[str], result: subprocess.CompletedProcess[str]) -> bool:
     """An explicitly older harness may lack batch flags; retry its original one-row command."""
+    lines = result.stderr.splitlines()
+    argparse_error = "musubi-harness: error: unrecognized arguments: --max 5 --budget-seconds 3"
     return (
         "--memory-data-bin" in command
         and command[-4:] == ["--max", "5", "--budget-seconds", "3"]
         and result.returncode == 2
-        and "error: unrecognized arguments: --max 5 --budget-seconds 3" in result.stderr
+        and not result.stdout
+        and bool(lines)
+        and lines[-1] == argparse_error
+        and all(line.startswith(("usage:", " ")) for line in lines[:-1])
     )
 
 

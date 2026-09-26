@@ -28,7 +28,7 @@
           {
             "type": "command",
             "command": "musubi-codex-stop",
-            "timeout": 45
+            "timeout": 60
           }
         ]
       }
