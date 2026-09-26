@@ -36,19 +36,42 @@ every Musubi adapter.
 
 ## Install
 
-### As a Codex plugin from a marketplace
+### As a Codex plugin from its marketplace
 
-Once this repo is registered as a Codex marketplace, the install is one command:
+The plugin files and the Python commands are separate installs. Install the
+Python package first, in an environment whose console scripts are on the PATH
+used to launch Codex. From a checkout of this repository:
 
 ```bash
-codex plugin marketplace add sourceblender/musubi-codex
-codex plugin install musubi-codex@musubi-codex
+uv tool install .
+uv tool update-shell  # only if uv says its tool bin directory is not on PATH
 ```
 
-After installation, open `/hooks` in an interactive Codex session, review the
+Open a new shell and check that all three commands resolve before adding the
+plugin. Codex uses these commands for its MCP server and lifecycle hooks; a
+marketplace install does not install Python dependencies or console scripts.
+
+```bash
+command -v musubi-codex-mcp
+command -v musubi-codex-session-start
+command -v musubi-codex-stop
+codex plugin marketplace add sourceblender/musubi-codex
+codex plugin add musubi-codex@musubi-codex
+```
+
+Start a new Codex session. Open `/hooks` there, review the
 SessionStart and Stop hook definitions from `Plugin - musubi-codex@musubi-codex`,
 then trust those exact definitions. Codex does not auto-trust newly installed
-command hooks.
+command hooks. Run `musubi-codex-session-start` in the same shell to check its
+local continuity output before relying on the hook.
+
+**Transport limit in `musubi-harness` 1.0.1:** the Python commands can install
+and the Stop hook can write to the local shadow outbox, but remote Musubi
+capture and recall still require the private `memory-data` binary. On a clean
+machine without that binary, session start reports `memory_data_unavailable`.
+That means the service was not reached; it does not mean the memory set is
+empty. A shared-harness HTTP transport is planned so an independent install
+can perform remote reads and writes without fleet-tools.
 
 ### As a Python package (for development)
 
@@ -56,7 +79,6 @@ command hooks.
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
-pip install /path/to/musubi-harness   # or `pip install musubi-harness` once published
 ```
 
 The three entry points are then on `PATH`:
