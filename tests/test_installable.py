@@ -29,10 +29,10 @@ def _run_in_clean_interpreter(script: str) -> subprocess.CompletedProcess[str]:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        # Install the harness from the live fleet-tools checkout, then the
-        # plugin from this repo, then run the snippet.
+        # Install the published musubi-harness from PyPI, then the plugin
+        # from this repo. This mirrors what an external user would do.
         subprocess.check_call(
-            [str(python), "-m", "pip", "install", "--quiet", "/Users/ericmey/Vaults/fleet-tools"],
+            [str(python), "-m", "pip", "install", "--quiet", "musubi-harness>=1.0,<2"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
