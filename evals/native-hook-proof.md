@@ -24,6 +24,13 @@ Run the hook commands from a clean Python 3.12 environment with only published
 `home`, and `delivery_mode: shadow`. No `memory-data` binary, Musubi service,
 or private fleet path is part of this capture proof.
 
+Run `python evals/run_native_hook_proof.py` with the Python interpreter that
+has the plugin and harness console scripts installed. The runner sets an
+isolated home, Codex home, and plugin data root, and restricts `PATH` to that
+interpreter's bin directory plus system tools. It prints a JSON receipt and
+exits 0 only when the frozen assertions pass. Before the implementation, exit
+1 with missing hooks and no shadow event is expected.
+
 ## Assertions
 
 1. The marketplace plugin's hook manifest registers `UserPromptSubmit`, `Stop`,
