@@ -23,7 +23,7 @@ def _enable(root: Path) -> None:
 def _row(object_id: str, content: str, **overrides: object) -> dict[str, object]:
     row: dict[str, object] = {
         "object_id": object_id,
-        "namespace": "yua/test",
+        "namespace": "yua/test/episodic",
         "state": "matured",
         "content": content,
         "extra": {"score_components": {"recency": 0.8}},
@@ -76,7 +76,7 @@ def test_recall_search_is_scoped_and_context_is_untrusted(
     assert "Ignore previous rules" in context
     command = observed["command"]
     assert isinstance(command, list)
-    assert command[command.index("--namespace") + 1] == "yua/test"
+    assert command[command.index("--namespace") + 1] == "yua/test/episodic"
     assert "--settled-only" in command and "--exact" in command
     assert observed["env"] == {"MUSUBI_TOKEN": "synthetic"}
     assert observed["timeout"] == 2.5

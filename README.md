@@ -187,7 +187,8 @@ plugin sends up to the first 1,200 characters of each prompt to the configured
 Musubi service. Leave the file absent, or set `enabled` to `false`, to keep
 per-prompt lookup off. This setting does not enable remote memory writes.
 
-The `UserPromptSubmit` hook returns at most three settled matches and 1,200
+The `UserPromptSubmit` hook searches the configured presence's exact episodic
+namespace and returns at most three settled matches and 1,200
 characters of labelled, untrusted context. It preserves Musubi's result order,
 includes object IDs and a relative recency score for follow-up, and distinguishes
 a true empty result from an unavailable or degraded service. Ranked results do
