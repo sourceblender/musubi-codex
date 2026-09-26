@@ -1,0 +1,41 @@
+{
+  "candidate_UserPromptSubmit": {
+    "all_rows_have_recency_score": true,
+    "bounded_context_1200_chars": true,
+    "elapsed_seconds": 0.887,
+    "exit_code": 0,
+    "hook_event": "UserPromptSubmit",
+    "local_prompt_stage_files": 1,
+    "result_lines": 3,
+    "stderr_bytes": 0,
+    "unavailable": false
+  },
+  "candidate_head": "28ab74a3b3cb2acadf01ccbf97dbc3cd44501c5f",
+  "credential": "existing_seat_credential_with_read_permission; value_omitted",
+  "direct_deep": {
+    "all_exact_namespace": true,
+    "all_ids_present": true,
+    "all_settled": true,
+    "elapsed_seconds": 0.811,
+    "exit_code": 0,
+    "response_keys": [
+      "limit",
+      "mode",
+      "results",
+      "warnings"
+    ],
+    "result_count": 3,
+    "warnings_count": 0
+  },
+  "limits": [
+    "No Codex TUI host injection in this live read-only run",
+    "No memory text, object IDs, URL, token or query text retained",
+    "The search service may change after this point-in-time proof"
+  ],
+  "passed": true,
+  "query": "owned_episodic_namespace; text_and_namespace_omitted",
+  "remote_mutations": 0,
+  "schema_version": 1,
+  "scope": "read_only_live_Musubi_deep_retrieval_and_candidate_hook",
+  "transport": "bundled_musubi_memory_data_1.1.1"
+}
