@@ -33,8 +33,8 @@ def _run_stop(
     monkeypatch.setattr(stop, "clear_prompt", lambda _hook: None)
     monkeypatch.setattr(
         stop,
-        "build_envelope",
-        lambda _hook: {"actor": "tama", "zone": "home", "event_id": "one"},
+        "build_envelopes",
+        lambda _hook: [{"actor": "tama", "zone": "home", "event_id": "one"}],
     )
     degraded: list[str] = []
     monkeypatch.setattr(stop, "_record_degraded", degraded.append)

@@ -125,11 +125,24 @@ def test_stop_subprocesses_scope_connection_to_drain(
     monkeypatch.setattr("musubi_codex.stop.memory_data_bin", lambda *_args: "musubi-memory-data")
     submitted = {"session_id": "s", "turn_id": "t", "prompt": "Remember the proof"}
     store_prompt(submitted)
+    transcript = tmp_path / "transcript.jsonl"
+    transcript.write_text("\n".join(json.dumps(record) for record in [
+        {"type": "turn_context", "payload": {"turn_id": "t"}},
+        {"type": "response_item", "payload": {
+            "type": "message", "role": "user", "id": "msg-user-1",
+            "content": [{"type": "input_text", "text": "Remember the proof"}],
+            "internal_chat_message_metadata_passthrough": {"content_item_kinds": ["user.text"]},
+        }},
+        {"type": "response_item", "payload": {
+            "type": "message", "role": "assistant", "phase": "final_answer", "id": "msg-answer-1",
+            "content": [{"type": "output_text", "text": "Done"}],
+        }},
+    ]) + "\n")
     monkeypatch.setattr(
         sys,
         "stdin",
         io.StringIO(
-            json.dumps({"session_id": "s", "turn_id": "t", "last_assistant_message": "Done"})
+            json.dumps({"session_id": "s", "turn_id": "t", "last_assistant_message": "Done", "transcript_path": str(transcript)})
         ),
     )
     calls: list[tuple[list[str], dict[str, str]]] = []

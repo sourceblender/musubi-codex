@@ -9,6 +9,7 @@ test-function name with underscores for spaces.
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 from pathlib import Path
 
@@ -35,13 +36,18 @@ def _write_transcript(path: Path, records: list[dict]) -> None:
     )
 
 
+_message_ids = itertools.count(1)
+
+
 def _user_message(text: str) -> dict:
     return {
         "type": "response_item",
         "payload": {
             "type": "message",
             "role": "user",
+            "id": f"msg-user-{next(_message_ids)}",
             "content": [{"type": "input_text", "text": text}],
+            "internal_chat_message_metadata_passthrough": {"content_item_kinds": ["user.text"]},
         },
     }
 
@@ -52,6 +58,7 @@ def _assistant_message(text: str, *, phase: str = "final_answer") -> dict:
         "payload": {
             "type": "message",
             "role": "assistant",
+            "id": f"msg-answer-{next(_message_ids)}",
             "phase": phase,
             "content": [{"type": "output_text", "text": text}],
         },
@@ -124,7 +131,7 @@ def test_parses_single_user_assistant_turn_into_one_envelope(
     assert envelope["source"] == "codex"
     assert envelope["plane"] == "episodic"
     assert envelope["context"] == "primary"
-    assert envelope["event_id"] == "codex:sess-1:turn-001"
+    assert envelope["event_id"].startswith("exchange.v1:codex:sess-1:msg-answer-")
     assert envelope["user_text"] == "preserve the boundary"
     assert envelope["assistant_text"] == "preserved and verified"
 
@@ -331,7 +338,8 @@ def test_envelope_event_id_is_deterministic_across_retries(
     }
     first = build_envelope(hook)
     second = build_envelope(hook)
-    assert first["event_id"] == second["event_id"] == "codex:sess-A:turn-007"
+    assert first["event_id"] == second["event_id"]
+    assert first["event_id"].startswith("exchange.v1:codex:sess-A:msg-answer-")
 
 
 def test_partial_identity_config_refuses_to_start(

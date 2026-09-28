@@ -19,7 +19,7 @@ from typing import Any
 
 from musubi_harness import RuntimeConfig, RuntimeConfigError
 
-from .prompt_stage import clear_prompt, read_prompt
+from .prompt_stage import clear_prompt
 from .runtime import (
     data_root,
     harness_bin,
@@ -309,65 +309,164 @@ def parse_turn(transcript_path: Path, turn_id: str) -> tuple[str, str]:
     return user_text, assistant_text
 
 
-def build_envelope(hook: dict[str, Any]) -> dict[str, Any]:
+def _exchange_records(transcript_path: Path, turn_id: str) -> list[dict[str, Any]]:
+    """Project transcript finals onto ordered tty input spans, across turns."""
+    try:
+        lines = transcript_path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise AdapterError("transcript_unreadable") from exc
+    current_turn: str | None = None
+    pending: list[tuple[str, str]] = []
+    seen_messages: dict[str, tuple[str, str]] = {}
+    exchanges: list[dict[str, Any]] = []
+    corrupt_since_final = False
+    for record in _records(lines):
+        if not isinstance(record, dict):
+            # A bad record can hide an input. A later final closes that
+            # uncertain span; it does not poison every subsequent exchange.
+            corrupt_since_final = True
+            continue
+        if record.get("type") == "turn_context":
+            payload = record.get("payload")
+            current_turn = payload.get("turn_id") if isinstance(payload, dict) else None
+            continue
+        if record.get("type") != "response_item":
+            continue
+        message = record.get("payload")
+        if not isinstance(message, dict) or message.get("type") != "message":
+            continue
+        role = message.get("role")
+        if role not in {"user", "assistant"} or (
+            role == "assistant" and message.get("phase") != "final_answer"
+        ):
+            continue
+        message_id = message.get("id")
+        if not isinstance(message_id, str) or not message_id:
+            if current_turn == turn_id:
+                raise AdapterError("host_message_id_missing")
+            corrupt_since_final = True
+            continue
+        if role == "user":
+            metadata = message.get("internal_chat_message_metadata_passthrough")
+            kinds = metadata.get("content_item_kinds") if isinstance(metadata, dict) else None
+            if not isinstance(kinds, list) or not kinds or not all(isinstance(k, str) for k in kinds):
+                raise AdapterError("input_provenance_missing")
+            known = {"user.text", "user.image", "agents_md.instructions", "environments.environment_context", "plugins.recommendations"}
+            if any(k not in known for k in kinds):
+                raise AdapterError("input_provenance_unknown")
+            parts = _text_parts(message, "input_text")
+            text_value = "\n\n".join(parts)
+            signature = (role, text_value)
+            if message_id in seen_messages:
+                if seen_messages[message_id] != signature:
+                    raise AdapterError("host_message_id_collision")
+                continue
+            seen_messages[message_id] = signature
+            if any(k.startswith("user.") for k in kinds):
+                if not parts:
+                    raise AdapterError("primary_user_text_missing")
+                pending.append((message_id, text_value))
+            continue
+        parts = _text_parts(message, "output_text", allow_blank=True)
+        if len(parts) != 1:
+            raise AdapterError("final_answer_text_invalid")
+        signature = (role, parts[0])
+        if message_id in seen_messages:
+            if seen_messages[message_id] != signature:
+                raise AdapterError("host_message_id_collision")
+            continue
+        seen_messages[message_id] = signature
+        if current_turn == turn_id:
+            if corrupt_since_final:
+                raise AdapterError("transcript_identity_span_corrupt")
+            exchanges.append(
+                {"answer_id": message_id, "assistant_text": parts[0],
+                 "inputs": list(pending), "turn_id": turn_id}
+            )
+        pending.clear()
+        corrupt_since_final = False
+    if not exchanges:
+        raise AdapterError("single_final_answer_not_proven")
+    return exchanges
+
+
+def build_envelopes(hook: dict[str, Any]) -> list[dict[str, Any]]:
     required = ("session_id", "turn_id")
     if any(not isinstance(hook.get(key), str) or not hook[key] for key in required):
         raise AdapterError("hook_identity_missing")
     actor, presence, zone = _identity_config()
-    try:
-        staged_prompt = read_prompt(hook)
-    except ValueError as exc:
-        raise AdapterError(str(exc)) from exc
-    last_message = hook.get("last_assistant_message")
-    if staged_prompt is not None and isinstance(last_message, str) and last_message.strip():
-        user_text, assistant_text, receipts = staged_prompt, last_message, None
-        capture_source = "native_hooks"
-    else:
-        transcript_path = hook.get("transcript_path")
-        if not isinstance(transcript_path, str) or not transcript_path:
-            raise AdapterError("transcript_unavailable")
-        user_text, assistant_text, receipts = _parse_turn(Path(transcript_path), hook["turn_id"])
-        capture_source = "transcript_fallback"
-    metadata: dict[str, str] = {
-        "session_id": hook["session_id"],
-        "turn_id": hook["turn_id"],
-        "capture_source": capture_source,
-    }
-    if isinstance(hook.get("model"), str) and hook["model"]:
-        metadata["model"] = hook["model"]
-    if isinstance(hook.get("cwd"), str) and hook["cwd"]:
-        metadata["workspace"] = Path(hook["cwd"]).name
-    if receipts is not None:
-        metadata["bridge_receipt_count"] = str(len(receipts))
-        metadata["bridge_logical_ids"] = json.dumps(
-            [receipt["logical_id"] for receipt in receipts], separators=(",", ":")
+    transcript_path = hook.get("transcript_path")
+    if not isinstance(transcript_path, str) or not transcript_path:
+        raise AdapterError("transcript_unavailable")
+    exchanges = _exchange_records(Path(transcript_path), hook["turn_id"])
+    envelopes: list[dict[str, Any]] = []
+    for exchange in exchanges:
+        inputs = exchange["inputs"]
+        if not inputs:
+            raise AdapterError("no_eligible_input")
+        assistant_text = exchange["assistant_text"]
+        receipts: list[dict[str, Any]] | None = None
+        if not assistant_text.strip():
+            # A blank final can represent an Engawa action. Preserve the
+            # receipt-backed recovery path only when the old turn parser can
+            # prove one final; multiple blank finals need finer receipt
+            # association and must fail closed.
+            _user, assistant_text, receipts = _parse_turn(Path(transcript_path), hook["turn_id"])
+        input_ids = [item[0] for item in inputs]
+        encoded_ids = json.dumps(input_ids, ensure_ascii=False, separators=(",", ":"))
+        encoded_texts = json.dumps(
+            [item[1] for item in inputs], ensure_ascii=False, separators=(",", ":")
         )
-        metadata["bridge_transport_ids"] = json.dumps(
-            [receipt["transport_id"] for receipt in receipts], separators=(",", ":")
-        )
-        receipt = receipts[-1]
-        metadata.update(
-            {
+        metadata: dict[str, str] = {
+            "session_id": hook["session_id"],
+            "turn_id": hook["turn_id"],
+            "capture_source": "transcript_exchange",
+            "answer_id": exchange["answer_id"],
+            "input_record_texts_sha256": hashlib.sha256(encoded_texts.encode("utf-8")).hexdigest(),
+        }
+        if len(encoded_ids.encode("utf-8")) <= 1024:
+            metadata["input_record_ids"] = encoded_ids
+        else:
+            metadata["input_record_ids_sha256"] = hashlib.sha256(encoded_ids.encode("utf-8")).hexdigest()
+            metadata["input_record_count"] = str(len(input_ids))
+        if receipts is not None:
+            metadata["bridge_receipt_count"] = str(len(receipts))
+            metadata["bridge_logical_ids"] = json.dumps(
+                [receipt["logical_id"] for receipt in receipts], separators=(",", ":")
+            )
+            metadata["bridge_transport_ids"] = json.dumps(
+                [receipt["transport_id"] for receipt in receipts], separators=(",", ":")
+            )
+            receipt = receipts[-1]
+            metadata.update({
                 "bridge_logical_id": receipt["logical_id"],
                 "bridge_transport_id": receipt["transport_id"] or "",
                 "bridge_route": receipt["route"]["kind"],
                 "bridge_status": receipt["status"],
                 "bridge_payload_sha256": receipt["payload_sha256"],
-            }
-        )
-    return {
-        "event_id": f"codex:{hook['session_id']}:{hook['turn_id']}",
-        "actor": actor,
-        "presence": presence,
-        "plane": "episodic",
-        "context": "primary",
-        "source": "codex",
-        "zone": zone,
-        "user_text": user_text,
-        "assistant_text": assistant_text,
-        "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        "metadata": metadata,
-    }
+            })
+        envelopes.append({
+            "event_id": f"exchange.v1:codex:{hook['session_id']}:{exchange['answer_id']}",
+            "actor": actor,
+            "presence": presence,
+            "plane": "episodic",
+            "context": "primary",
+            "source": "codex",
+            "zone": zone,
+            "user_text": "\n\n".join(item[1] for item in inputs),
+            "assistant_text": assistant_text,
+            "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "metadata": metadata,
+        })
+    return envelopes
+
+
+def build_envelope(hook: dict[str, Any]) -> dict[str, Any]:
+    """Compatibility helper for a hook resolving exactly one exchange."""
+    envelopes = build_envelopes(hook)
+    if len(envelopes) != 1:
+        raise AdapterError("multiple_exchange_envelopes")
+    return envelopes[0]
 
 
 # ---------------------------------------------------------------------------
@@ -483,25 +582,35 @@ def main() -> int:
         if not isinstance(payload, dict):
             raise AdapterError("hook_payload_invalid")
         hook = payload
-        envelope = build_envelope(hook)
+        envelopes = build_envelopes(hook)
         configured = runtime_config()
-        db = _data_root() / envelope["actor"] / envelope["zone"] / "shadow.db"
+        db = _data_root() / configured.actor / configured.zone / "shadow.db"
         command = [_harness(), "--db", str(db), "enqueue"]
         retain_staged_prompt = True
-        result = subprocess.run(
-            command,
-            input=json.dumps(envelope),
-            text=True,
-            capture_output=True,
-            timeout=8,
-            check=False,
-            env=local_tool_environment(configured),
-        )
-        if result.returncode != 0:
-            raise AdapterError("shadow_enqueue_failed")
+        for envelope in envelopes:
+            result = subprocess.run(
+                command,
+                input=json.dumps(envelope),
+                text=True,
+                capture_output=True,
+                timeout=8,
+                check=False,
+                env=local_tool_environment(configured),
+            )
+            if result.returncode != 0:
+                raise AdapterError("shadow_enqueue_failed")
         retain_staged_prompt = False
         clear_prompt(hook)
-        for command, timeout in delivery_commands(envelope, configured):
+        commands: list[tuple[list[str], int]] = []
+        for envelope in envelopes:
+            pair = delivery_commands(envelope, configured)
+            if pair:
+                commands.append(pair[0])
+        if envelopes:
+            pair = delivery_commands(envelopes[-1], configured)
+            if len(pair) > 1:
+                commands.append(pair[1])
+        for command, timeout in commands:
             environment = (
                 tool_environment(configured)
                 if "--memory-data-bin" in command
@@ -557,6 +666,7 @@ __all__ = [
     "AdapterError",
     "ExpectedNoCapture",
     "build_envelope",
+    "build_envelopes",
     "delivery_commands",
     "main",
     "parse_turn",
