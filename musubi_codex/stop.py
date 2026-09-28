@@ -12,6 +12,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import time
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,7 +20,8 @@ from typing import Any
 
 from musubi_harness import RuntimeConfig, RuntimeConfigError
 
-from .prompt_stage import clear_prompt, read_prompt
+from .pending import Candidate, candidate_key, expired, load_all, save
+from .prompt_stage import clear_prompt
 from .runtime import (
     data_root,
     harness_bin,
@@ -309,65 +311,232 @@ def parse_turn(transcript_path: Path, turn_id: str) -> tuple[str, str]:
     return user_text, assistant_text
 
 
-def build_envelope(hook: dict[str, Any]) -> dict[str, Any]:
+def _exchange_records(transcript_path: Path, turn_id: str) -> list[dict[str, Any]]:
+    """Project transcript finals onto ordered tty input spans, across turns."""
+    try:
+        lines = transcript_path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise AdapterError("transcript_unreadable") from exc
+    current_turn: str | None = None
+    pending: list[tuple[str, str]] = []
+    seen_messages: dict[str, tuple[str, str]] = {}
+    exchanges: list[dict[str, Any]] = []
+    span_problem: str | None = None
+    target_finals = 0
+    for record in _records(lines):
+        if not isinstance(record, dict):
+            # A bad record can hide an input. A later final closes that
+            # uncertain span; it does not poison every subsequent exchange.
+            span_problem = "transcript_identity_span_corrupt"
+            continue
+        if record.get("type") == "turn_context":
+            payload = record.get("payload")
+            current_turn = payload.get("turn_id") if isinstance(payload, dict) else None
+            continue
+        if record.get("type") != "response_item":
+            continue
+        message = record.get("payload")
+        if not isinstance(message, dict) or message.get("type") != "message":
+            continue
+        role = message.get("role")
+        if role not in {"user", "assistant"} or (
+            role == "assistant" and message.get("phase") != "final_answer"
+        ):
+            continue
+        message_id = message.get("id")
+        if not isinstance(message_id, str) or not message_id:
+            span_problem = "host_message_id_missing"
+            if role == "assistant":
+                if current_turn == turn_id:
+                    target_finals += 1
+                    exchanges.append({"decline_reason": span_problem})
+                pending.clear()
+                span_problem = None
+            continue
+        if role == "user":
+            metadata = message.get("internal_chat_message_metadata_passthrough")
+            kinds = metadata.get("content_item_kinds") if isinstance(metadata, dict) else None
+            if (
+                not isinstance(kinds, list)
+                or not kinds
+                or not all(isinstance(k, str) for k in kinds)
+            ):
+                span_problem = "input_provenance_missing"
+                continue
+            known = {
+                "user.text",
+                "user.image",
+                "agents_md.instructions",
+                "environments.environment_context",
+                "plugins.recommendations",
+            }
+            if any(k not in known for k in kinds):
+                span_problem = "input_provenance_unknown"
+                continue
+            try:
+                parts = _text_parts(message, "input_text")
+            except AdapterError as exc:
+                span_problem = str(exc)
+                continue
+            text_value = "\n\n".join(parts)
+            signature = (role, text_value)
+            if message_id in seen_messages:
+                if seen_messages[message_id] != signature:
+                    span_problem = "host_message_id_collision"
+                continue
+            seen_messages[message_id] = signature
+            if any(k.startswith("user.") for k in kinds):
+                if not parts:
+                    span_problem = "primary_user_text_missing"
+                    continue
+                pending.append((message_id, text_value))
+            continue
+        try:
+            parts = _text_parts(message, "output_text", allow_blank=True)
+        except AdapterError as exc:
+            span_problem = str(exc)
+            parts = []
+        if len(parts) != 1:
+            span_problem = "final_answer_text_invalid"
+            if current_turn == turn_id:
+                target_finals += 1
+                exchanges.append({"decline_reason": span_problem})
+            pending.clear()
+            span_problem = None
+            continue
+        signature = (role, parts[0])
+        if message_id in seen_messages:
+            if seen_messages[message_id] != signature:
+                if current_turn == turn_id:
+                    target_finals += 1
+                    exchanges.append({"decline_reason": "host_message_id_collision"})
+                pending.clear()
+                span_problem = None
+            continue
+        seen_messages[message_id] = signature
+        if current_turn == turn_id:
+            target_finals += 1
+            if span_problem:
+                exchanges.append({"decline_reason": span_problem})
+            else:
+                exchanges.append(
+                    {
+                        "answer_id": message_id,
+                        "assistant_text": parts[0],
+                        "inputs": list(pending),
+                        "turn_id": turn_id,
+                    }
+                )
+        pending.clear()
+        span_problem = None
+    if not target_finals:
+        raise AdapterError("single_final_answer_not_proven")
+    return exchanges
+
+
+def build_envelopes(
+    hook: dict[str, Any], *, declines: list[str] | None = None
+) -> list[dict[str, Any]]:
     required = ("session_id", "turn_id")
     if any(not isinstance(hook.get(key), str) or not hook[key] for key in required):
         raise AdapterError("hook_identity_missing")
     actor, presence, zone = _identity_config()
-    try:
-        staged_prompt = read_prompt(hook)
-    except ValueError as exc:
-        raise AdapterError(str(exc)) from exc
-    last_message = hook.get("last_assistant_message")
-    if staged_prompt is not None and isinstance(last_message, str) and last_message.strip():
-        user_text, assistant_text, receipts = staged_prompt, last_message, None
-        capture_source = "native_hooks"
-    else:
-        transcript_path = hook.get("transcript_path")
-        if not isinstance(transcript_path, str) or not transcript_path:
-            raise AdapterError("transcript_unavailable")
-        user_text, assistant_text, receipts = _parse_turn(Path(transcript_path), hook["turn_id"])
-        capture_source = "transcript_fallback"
-    metadata: dict[str, str] = {
-        "session_id": hook["session_id"],
-        "turn_id": hook["turn_id"],
-        "capture_source": capture_source,
-    }
-    if isinstance(hook.get("model"), str) and hook["model"]:
-        metadata["model"] = hook["model"]
-    if isinstance(hook.get("cwd"), str) and hook["cwd"]:
-        metadata["workspace"] = Path(hook["cwd"]).name
-    if receipts is not None:
-        metadata["bridge_receipt_count"] = str(len(receipts))
-        metadata["bridge_logical_ids"] = json.dumps(
-            [receipt["logical_id"] for receipt in receipts], separators=(",", ":")
+    transcript_path = hook.get("transcript_path")
+    if not isinstance(transcript_path, str) or not transcript_path:
+        raise AdapterError("transcript_unavailable")
+    exchanges = _exchange_records(Path(transcript_path), hook["turn_id"])
+    envelopes: list[dict[str, Any]] = []
+    for exchange in exchanges:
+        if "decline_reason" in exchange:
+            if declines is not None:
+                declines.append(exchange["decline_reason"])
+            continue
+        inputs = exchange["inputs"]
+        if not inputs:
+            if declines is not None:
+                declines.append("no_eligible_input")
+            continue
+        assistant_text = exchange["assistant_text"]
+        receipts: list[dict[str, Any]] | None = None
+        if not assistant_text.strip():
+            # A blank final can represent an Engawa action. Preserve the
+            # receipt-backed recovery path only when the old turn parser can
+            # prove one final; multiple blank finals need finer receipt
+            # association and must fail closed.
+            try:
+                _user, assistant_text, receipts = _parse_turn(
+                    Path(transcript_path), hook["turn_id"]
+                )
+            except ExpectedNoCapture:
+                continue
+            except AdapterError as exc:
+                if declines is not None:
+                    declines.append(str(exc))
+                continue
+        input_ids = [item[0] for item in inputs]
+        encoded_ids = json.dumps(input_ids, ensure_ascii=False, separators=(",", ":"))
+        encoded_texts = json.dumps(
+            [item[1] for item in inputs], ensure_ascii=False, separators=(",", ":")
         )
-        metadata["bridge_transport_ids"] = json.dumps(
-            [receipt["transport_id"] for receipt in receipts], separators=(",", ":")
-        )
-        receipt = receipts[-1]
-        metadata.update(
+        metadata: dict[str, str] = {
+            "session_id": hook["session_id"],
+            "turn_id": hook["turn_id"],
+            "capture_source": "transcript_exchange",
+            "answer_id": exchange["answer_id"],
+            "input_record_texts_sha256": hashlib.sha256(encoded_texts.encode("utf-8")).hexdigest(),
+        }
+        if len(encoded_ids.encode("utf-8")) <= 1024:
+            metadata["input_record_ids"] = encoded_ids
+        else:
+            metadata["input_record_ids_sha256"] = hashlib.sha256(
+                encoded_ids.encode("utf-8")
+            ).hexdigest()
+            metadata["input_record_count"] = str(len(input_ids))
+        if receipts is not None:
+            metadata["bridge_receipt_count"] = str(len(receipts))
+            metadata["bridge_logical_ids"] = json.dumps(
+                [receipt["logical_id"] for receipt in receipts], separators=(",", ":")
+            )
+            metadata["bridge_transport_ids"] = json.dumps(
+                [receipt["transport_id"] for receipt in receipts], separators=(",", ":")
+            )
+            receipt = receipts[-1]
+            metadata.update(
+                {
+                    "bridge_logical_id": receipt["logical_id"],
+                    "bridge_transport_id": receipt["transport_id"] or "",
+                    "bridge_route": receipt["route"]["kind"],
+                    "bridge_status": receipt["status"],
+                    "bridge_payload_sha256": receipt["payload_sha256"],
+                }
+            )
+        envelopes.append(
             {
-                "bridge_logical_id": receipt["logical_id"],
-                "bridge_transport_id": receipt["transport_id"] or "",
-                "bridge_route": receipt["route"]["kind"],
-                "bridge_status": receipt["status"],
-                "bridge_payload_sha256": receipt["payload_sha256"],
+                "event_id": f"exchange.v1:codex:{hook['session_id']}:{exchange['answer_id']}",
+                "actor": actor,
+                "presence": presence,
+                "plane": "episodic",
+                "context": "primary",
+                "source": "codex",
+                "zone": zone,
+                "user_text": "\n\n".join(item[1] for item in inputs),
+                "assistant_text": assistant_text,
+                "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                "metadata": metadata,
             }
         )
-    return {
-        "event_id": f"codex:{hook['session_id']}:{hook['turn_id']}",
-        "actor": actor,
-        "presence": presence,
-        "plane": "episodic",
-        "context": "primary",
-        "source": "codex",
-        "zone": zone,
-        "user_text": user_text,
-        "assistant_text": assistant_text,
-        "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        "metadata": metadata,
-    }
+    return envelopes
+
+
+def build_envelope(hook: dict[str, Any]) -> dict[str, Any]:
+    """Compatibility helper for a hook resolving exactly one exchange."""
+    declines: list[str] = []
+    envelopes = build_envelopes(hook, declines=declines)
+    if not envelopes and declines:
+        raise AdapterError(declines[0])
+    if len(envelopes) != 1:
+        raise AdapterError("multiple_exchange_envelopes")
+    return envelopes[0]
 
 
 # ---------------------------------------------------------------------------
@@ -475,61 +644,242 @@ def _record_degraded(reason: str) -> None:
         pass
 
 
-def main() -> int:
-    hook: dict[str, Any] | None = None
-    retain_staged_prompt = False
+_NOT_YET = {"single_final_answer_not_proven", "transcript_unreadable"}
+_POLLABLE = {"single_final_answer_not_proven"}
+_POLL_ATTEMPTS = 5
+_POLL_INTERVAL = 0.2
+_PENDING_LIMIT = 10
+_PENDING_BUDGET = 4.0
+
+
+def _pending_root(configured: RuntimeConfig) -> Path:
+    return _data_root() / configured.actor / configured.zone
+
+
+def _enqueue(envelope: dict[str, Any], configured: RuntimeConfig) -> None:
+    db = _pending_root(configured) / "shadow.db"
+    result = subprocess.run(
+        [_harness(), "--db", str(db), "enqueue"],
+        input=json.dumps(envelope),
+        text=True,
+        capture_output=True,
+        timeout=8,
+        check=False,
+        env=local_tool_environment(configured),
+    )
+    if result.returncode != 0:
+        raise AdapterError("shadow_enqueue_failed")
+
+
+def _candidate_from_hook(hook: dict[str, Any]) -> Candidate:
+    for field in ("session_id", "turn_id", "transcript_path"):
+        if not isinstance(hook.get(field), str) or not hook[field]:
+            raise AdapterError(
+                "hook_identity_missing" if field != "transcript_path" else "transcript_unavailable"
+            )
+    return Candidate(
+        session_id=hook["session_id"],
+        turn_id=hook["turn_id"],
+        transcript_path=hook["transcript_path"],
+        created_at=time.time(),
+    )
+
+
+def _capture_current(hook: dict[str, Any], configured: RuntimeConfig) -> list[dict[str, Any]]:
+    candidate = _candidate_from_hook(hook)
+    root = _pending_root(configured)
+    for _path, prior in load_all(root):
+        if prior is not None and prior.key == candidate.key:
+            candidate.created_at = prior.created_at
+            candidate.attempts = prior.attempts
+            break
+    # The Stop hook can be killed while polling or enqueuing. Persist first.
+    save(root, candidate)
+    for attempt in range(_POLL_ATTEMPTS):
+        declines: list[str] = []
+        try:
+            envelopes = build_envelopes(candidate.hook(), declines=declines)
+        except AdapterError as exc:
+            if str(exc) not in _NOT_YET:
+                raise
+            if str(exc) in _POLLABLE and attempt + 1 < _POLL_ATTEMPTS:
+                time.sleep(_POLL_INTERVAL)
+                continue
+            return []
+        for reason in declines:
+            _record_degraded(reason)
+        for envelope in envelopes:
+            try:
+                _enqueue(envelope, configured)
+            except (AdapterError, OSError, subprocess.SubprocessError):
+                save(root, candidate)
+                raise
+        if configured.delivery_mode == "shadow" or not envelopes:
+            (root / "pending-exchange" / f"{candidate.key}.json").unlink(missing_ok=True)
+        return envelopes
+    raise AssertionError("poll loop exhausted")
+
+
+def drain_pending(
+    configured: RuntimeConfig, *, skip_key: str | None = None
+) -> list[dict[str, Any]]:
+    """Enqueue older candidates independently; one failure cannot block the rest."""
+    root = _pending_root(configured)
+    deadline = time.monotonic() + _PENDING_BUDGET
+    captured: list[dict[str, Any]] = []
+    handled = 0
+    for path, candidate in load_all(root):
+        if handled >= _PENDING_LIMIT or time.monotonic() >= deadline:
+            break
+        if candidate is not None and candidate.key == skip_key:
+            continue
+        handled += 1
+        if candidate is None:
+            _record_degraded("pending_unreadable")
+            path.unlink(missing_ok=True)
+            continue
+        declines: list[str] = []
+        try:
+            envelopes = build_envelopes(candidate.hook(), declines=declines)
+        except AdapterError as exc:
+            if str(exc) in _NOT_YET:
+                if str(exc) in _POLLABLE:
+                    candidate.attempts += 1
+                if expired(candidate):
+                    _record_degraded("pending_expired")
+                    path.unlink(missing_ok=True)
+                else:
+                    save(root, candidate)
+                continue
+            _record_degraded(str(exc))
+            path.unlink(missing_ok=True)
+            continue
+        for reason in declines:
+            _record_degraded(reason)
+        failed = False
+        candidate_captured: list[dict[str, Any]] = []
+        for envelope in envelopes:
+            try:
+                _enqueue(envelope, configured)
+            except (AdapterError, OSError, subprocess.SubprocessError):
+                _record_degraded("shadow_enqueue_failed")
+                failed = True
+                break
+            candidate_captured.append(envelope)
+        if failed:
+            if expired(candidate):
+                _record_degraded("pending_expired")
+                path.unlink(missing_ok=True)
+            else:
+                save(root, candidate)
+            continue
+        captured.extend(candidate_captured)
+        if configured.delivery_mode == "shadow" or not candidate_captured:
+            path.unlink(missing_ok=True)
+        # Leave room for the current Stop and the verified-delivery pass.
+        # A later hook drains the next candidate in the backlog.
+        if candidate_captured:
+            break
+    return captured
+
+
+def _deliver(
+    envelopes: list[dict[str, Any]], configured: RuntimeConfig, *, drain_only: bool = False
+) -> None:
+    if configured.delivery_mode == "shadow" or not envelopes:
+        return
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for envelope in envelopes:
+        metadata = envelope.get("metadata", {})
+        if (
+            isinstance(metadata, dict)
+            and isinstance(metadata.get("session_id"), str)
+            and isinstance(metadata.get("turn_id"), str)
+        ):
+            key = candidate_key(metadata["session_id"], metadata["turn_id"])
+        else:
+            key = envelope["event_id"]  # compatibility with synthetic test envelopes
+        groups.setdefault(key, []).append(envelope)
+    staged = False
+    for key, group in groups.items():
+        all_staged = True
+        for envelope in group:
+            command, timeout = delivery_commands(envelope, configured)[0]
+            try:
+                result = subprocess.run(
+                    command,
+                    text=True,
+                    capture_output=True,
+                    timeout=timeout,
+                    check=False,
+                    env=local_tool_environment(configured),
+                )
+                if result.returncode != 0:
+                    raise AdapterError("verified_delivery_failed")
+                staged = True
+            except (AdapterError, OSError, subprocess.SubprocessError):
+                _record_degraded("verified_delivery_failed")
+                all_staged = False
+        if all_staged:
+            (_pending_root(configured) / "pending-exchange" / f"{key}.json").unlink(missing_ok=True)
+    if not staged or drain_only:
+        return
+    pair = delivery_commands(envelopes[-1], configured)
+    if len(pair) < 2:
+        return
+    command, timeout = pair[1]
     try:
-        payload = json.load(sys.stdin)
-        if not isinstance(payload, dict):
-            raise AdapterError("hook_payload_invalid")
-        hook = payload
-        envelope = build_envelope(hook)
-        configured = runtime_config()
-        db = _data_root() / envelope["actor"] / envelope["zone"] / "shadow.db"
-        command = [_harness(), "--db", str(db), "enqueue"]
-        retain_staged_prompt = True
+        environment = tool_environment(configured)
         result = subprocess.run(
             command,
-            input=json.dumps(envelope),
             text=True,
             capture_output=True,
-            timeout=8,
+            timeout=timeout,
             check=False,
-            env=local_tool_environment(configured),
+            env=environment,
         )
-        if result.returncode != 0:
-            raise AdapterError("shadow_enqueue_failed")
-        retain_staged_prompt = False
-        clear_prompt(hook)
-        for command, timeout in delivery_commands(envelope, configured):
-            environment = (
-                tool_environment(configured)
-                if "--memory-data-bin" in command
-                else local_tool_environment(configured)
-            )
+        if _legacy_drain_retry(command, result):
             result = subprocess.run(
-                command,
+                command[:-4],
                 text=True,
                 capture_output=True,
-                timeout=timeout,
+                timeout=15,
                 check=False,
                 env=environment,
             )
-            if _legacy_drain_retry(command, result):
-                result = subprocess.run(
-                    command[:-4],
-                    text=True,
-                    capture_output=True,
-                    timeout=15,
-                    check=False,
-                    env=environment,
+        if result.returncode != 0:
+            raise AdapterError("verified_delivery_failed")
+    except (AdapterError, OSError, subprocess.SubprocessError):
+        _record_degraded("verified_delivery_failed")
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    drain_only = "--drain-only" in args
+    hook: dict[str, Any] | None = None
+    try:
+        raw = sys.stdin.read()
+        payload = json.loads(raw) if raw.strip() else {}
+        if not isinstance(payload, dict):
+            raise AdapterError("hook_payload_invalid")
+        hook = payload
+        configured = runtime_config()
+        skip_key: str | None = None
+        if not drain_only:
+            with suppress(AdapterError):
+                skip_key = _candidate_from_hook(hook).key
+        captured = drain_pending(configured, skip_key=skip_key)
+        if not drain_only:
+            try:
+                captured.extend(_capture_current(hook, configured))
+            except (AdapterError, OSError, subprocess.SubprocessError) as exc:
+                _record_degraded(
+                    str(exc) if isinstance(exc, AdapterError) else "adapter_runtime_failed"
                 )
-            if result.returncode != 0:
-                raise AdapterError("verified_delivery_failed")
-    except ExpectedNoCapture:
-        if hook is not None:
-            with suppress(OSError, ValueError):
-                clear_prompt(hook)
+            finally:
+                with suppress(OSError, ValueError):
+                    clear_prompt(hook)
+        _deliver(captured, configured, drain_only=drain_only)
     except (
         AdapterError,
         RuntimeConfigError,
@@ -537,9 +887,6 @@ def main() -> int:
         OSError,
         subprocess.SubprocessError,
     ) as exc:
-        if hook is not None and not retain_staged_prompt:
-            with suppress(OSError, ValueError):
-                clear_prompt(hook)
         if isinstance(exc, (RuntimeConfigError, AdapterError)):
             reason = str(exc)
         else:
@@ -557,6 +904,7 @@ __all__ = [
     "AdapterError",
     "ExpectedNoCapture",
     "build_envelope",
+    "build_envelopes",
     "delivery_commands",
     "main",
     "parse_turn",
