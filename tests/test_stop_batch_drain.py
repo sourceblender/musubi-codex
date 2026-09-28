@@ -31,7 +31,10 @@ def _run_stop(
     monkeypatch.setattr(stop, "local_tool_environment", lambda _config: {"LOCAL": "1"})
     monkeypatch.setattr(stop, "tool_environment", lambda _config: {"MUSUBI_TOKEN": "synthetic"})
     monkeypatch.setattr(stop, "clear_prompt", lambda _hook: None)
-    def capture_current(_hook: dict[str, object], configured: RuntimeConfig) -> list[dict[str, str]]:
+
+    def capture_current(
+        _hook: dict[str, object], configured: RuntimeConfig
+    ) -> list[dict[str, str]]:
         envelope = {"actor": "tama", "zone": "home", "event_id": "one"}
         stop._enqueue(envelope, configured)
         return [envelope]

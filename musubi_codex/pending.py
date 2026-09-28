@@ -31,7 +31,11 @@ class Candidate:
             raise ValueError("pending_transcript_path_invalid")
         if isinstance(self.created_at, bool) or not isinstance(self.created_at, (int, float)):
             raise ValueError("pending_created_at_invalid")
-        if isinstance(self.attempts, bool) or not isinstance(self.attempts, int) or self.attempts < 0:
+        if (
+            isinstance(self.attempts, bool)
+            or not isinstance(self.attempts, int)
+            or self.attempts < 0
+        ):
             raise ValueError("pending_attempts_invalid")
 
     @property

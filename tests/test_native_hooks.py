@@ -20,15 +20,26 @@ from musubi_codex.stop import main as stop_main
 def transcript(path: Path, *, prompt: str = "Do the task", answer: str = "done") -> Path:
     records = [
         {"type": "turn_context", "payload": {"turn_id": "t"}},
-        {"type": "response_item", "payload": {
-            "type": "message", "role": "user", "id": "msg-user-1",
-            "content": [{"type": "input_text", "text": prompt}],
-            "internal_chat_message_metadata_passthrough": {"content_item_kinds": ["user.text"]},
-        }},
-        {"type": "response_item", "payload": {
-            "type": "message", "role": "assistant", "phase": "final_answer", "id": "msg-answer-1",
-            "content": [{"type": "output_text", "text": answer}],
-        }},
+        {
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "user",
+                "id": "msg-user-1",
+                "content": [{"type": "input_text", "text": prompt}],
+                "internal_chat_message_metadata_passthrough": {"content_item_kinds": ["user.text"]},
+            },
+        },
+        {
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "assistant",
+                "phase": "final_answer",
+                "id": "msg-answer-1",
+                "content": [{"type": "output_text", "text": answer}],
+            },
+        },
     ]
     path.write_text("\n".join(json.dumps(record) for record in records) + "\n", encoding="utf-8")
     return path
@@ -59,7 +70,9 @@ def test_native_pair_requires_transcript_anchor(configured: Path) -> None:
     hook = {"session_id": "s", "turn_id": "t", "last_assistant_message": "Fixed it"}
     with pytest.raises(AdapterError, match="transcript_unavailable"):
         build_envelope(hook)
-    hook["transcript_path"] = str(transcript(configured / "t.jsonl", prompt="Fix the bug", answer="Fixed it"))
+    hook["transcript_path"] = str(
+        transcript(configured / "t.jsonl", prompt="Fix the bug", answer="Fixed it")
+    )
     first = build_envelope(hook)
     second = build_envelope(hook)
     assert first["event_id"] == second["event_id"] == "exchange.v1:codex:s:msg-answer-1"
@@ -112,7 +125,12 @@ def test_stop_clears_prompt_only_after_successful_shadow_enqueue(
     configured: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     submitted = {"session_id": "s", "turn_id": "t", "prompt": "Do the task"}
-    stopped = {"session_id": "s", "turn_id": "t", "last_assistant_message": "done", "transcript_path": str(transcript(configured / "t.jsonl"))}
+    stopped = {
+        "session_id": "s",
+        "turn_id": "t",
+        "last_assistant_message": "done",
+        "transcript_path": str(transcript(configured / "t.jsonl")),
+    }
     store_prompt(submitted)
     seen: list[dict[str, object]] = []
 
@@ -132,7 +150,12 @@ def test_failed_enqueue_keeps_pending_candidate_for_retry(
     configured: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     submitted = {"session_id": "s", "turn_id": "t", "prompt": "Do the task"}
-    stopped = {"session_id": "s", "turn_id": "t", "last_assistant_message": "done", "transcript_path": str(transcript(configured / "t.jsonl"))}
+    stopped = {
+        "session_id": "s",
+        "turn_id": "t",
+        "last_assistant_message": "done",
+        "transcript_path": str(transcript(configured / "t.jsonl")),
+    }
     store_prompt(submitted)
     monkeypatch.setattr(
         "musubi_codex.stop.subprocess.run",

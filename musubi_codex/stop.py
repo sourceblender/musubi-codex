@@ -356,10 +356,20 @@ def _exchange_records(transcript_path: Path, turn_id: str) -> list[dict[str, Any
         if role == "user":
             metadata = message.get("internal_chat_message_metadata_passthrough")
             kinds = metadata.get("content_item_kinds") if isinstance(metadata, dict) else None
-            if not isinstance(kinds, list) or not kinds or not all(isinstance(k, str) for k in kinds):
+            if (
+                not isinstance(kinds, list)
+                or not kinds
+                or not all(isinstance(k, str) for k in kinds)
+            ):
                 span_problem = "input_provenance_missing"
                 continue
-            known = {"user.text", "user.image", "agents_md.instructions", "environments.environment_context", "plugins.recommendations"}
+            known = {
+                "user.text",
+                "user.image",
+                "agents_md.instructions",
+                "environments.environment_context",
+                "plugins.recommendations",
+            }
             if any(k not in known for k in kinds):
                 span_problem = "input_provenance_unknown"
                 continue
@@ -410,8 +420,12 @@ def _exchange_records(transcript_path: Path, turn_id: str) -> list[dict[str, Any
                 exchanges.append({"decline_reason": span_problem})
             else:
                 exchanges.append(
-                    {"answer_id": message_id, "assistant_text": parts[0],
-                     "inputs": list(pending), "turn_id": turn_id}
+                    {
+                        "answer_id": message_id,
+                        "assistant_text": parts[0],
+                        "inputs": list(pending),
+                        "turn_id": turn_id,
+                    }
                 )
         pending.clear()
         span_problem = None
@@ -474,7 +488,9 @@ def build_envelopes(
         if len(encoded_ids.encode("utf-8")) <= 1024:
             metadata["input_record_ids"] = encoded_ids
         else:
-            metadata["input_record_ids_sha256"] = hashlib.sha256(encoded_ids.encode("utf-8")).hexdigest()
+            metadata["input_record_ids_sha256"] = hashlib.sha256(
+                encoded_ids.encode("utf-8")
+            ).hexdigest()
             metadata["input_record_count"] = str(len(input_ids))
         if receipts is not None:
             metadata["bridge_receipt_count"] = str(len(receipts))
@@ -485,26 +501,30 @@ def build_envelopes(
                 [receipt["transport_id"] for receipt in receipts], separators=(",", ":")
             )
             receipt = receipts[-1]
-            metadata.update({
-                "bridge_logical_id": receipt["logical_id"],
-                "bridge_transport_id": receipt["transport_id"] or "",
-                "bridge_route": receipt["route"]["kind"],
-                "bridge_status": receipt["status"],
-                "bridge_payload_sha256": receipt["payload_sha256"],
-            })
-        envelopes.append({
-            "event_id": f"exchange.v1:codex:{hook['session_id']}:{exchange['answer_id']}",
-            "actor": actor,
-            "presence": presence,
-            "plane": "episodic",
-            "context": "primary",
-            "source": "codex",
-            "zone": zone,
-            "user_text": "\n\n".join(item[1] for item in inputs),
-            "assistant_text": assistant_text,
-            "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-            "metadata": metadata,
-        })
+            metadata.update(
+                {
+                    "bridge_logical_id": receipt["logical_id"],
+                    "bridge_transport_id": receipt["transport_id"] or "",
+                    "bridge_route": receipt["route"]["kind"],
+                    "bridge_status": receipt["status"],
+                    "bridge_payload_sha256": receipt["payload_sha256"],
+                }
+            )
+        envelopes.append(
+            {
+                "event_id": f"exchange.v1:codex:{hook['session_id']}:{exchange['answer_id']}",
+                "actor": actor,
+                "presence": presence,
+                "plane": "episodic",
+                "context": "primary",
+                "source": "codex",
+                "zone": zone,
+                "user_text": "\n\n".join(item[1] for item in inputs),
+                "assistant_text": assistant_text,
+                "captured_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                "metadata": metadata,
+            }
+        )
     return envelopes
 
 
@@ -654,16 +674,18 @@ def _enqueue(envelope: dict[str, Any], configured: RuntimeConfig) -> None:
 def _candidate_from_hook(hook: dict[str, Any]) -> Candidate:
     for field in ("session_id", "turn_id", "transcript_path"):
         if not isinstance(hook.get(field), str) or not hook[field]:
-            raise AdapterError("hook_identity_missing" if field != "transcript_path" else "transcript_unavailable")
+            raise AdapterError(
+                "hook_identity_missing" if field != "transcript_path" else "transcript_unavailable"
+            )
     return Candidate(
-        session_id=hook["session_id"], turn_id=hook["turn_id"],
-        transcript_path=hook["transcript_path"], created_at=time.time(),
+        session_id=hook["session_id"],
+        turn_id=hook["turn_id"],
+        transcript_path=hook["transcript_path"],
+        created_at=time.time(),
     )
 
 
-def _capture_current(
-    hook: dict[str, Any], configured: RuntimeConfig
-) -> list[dict[str, Any]]:
+def _capture_current(hook: dict[str, Any], configured: RuntimeConfig) -> list[dict[str, Any]]:
     candidate = _candidate_from_hook(hook)
     root = _pending_root(configured)
     for _path, prior in load_all(root):
@@ -769,7 +791,11 @@ def _deliver(
     groups: dict[str, list[dict[str, Any]]] = {}
     for envelope in envelopes:
         metadata = envelope.get("metadata", {})
-        if isinstance(metadata, dict) and isinstance(metadata.get("session_id"), str) and isinstance(metadata.get("turn_id"), str):
+        if (
+            isinstance(metadata, dict)
+            and isinstance(metadata.get("session_id"), str)
+            and isinstance(metadata.get("turn_id"), str)
+        ):
             key = candidate_key(metadata["session_id"], metadata["turn_id"])
         else:
             key = envelope["event_id"]  # compatibility with synthetic test envelopes
@@ -781,8 +807,12 @@ def _deliver(
             command, timeout = delivery_commands(envelope, configured)[0]
             try:
                 result = subprocess.run(
-                    command, text=True, capture_output=True, timeout=timeout,
-                    check=False, env=local_tool_environment(configured),
+                    command,
+                    text=True,
+                    capture_output=True,
+                    timeout=timeout,
+                    check=False,
+                    env=local_tool_environment(configured),
                 )
                 if result.returncode != 0:
                     raise AdapterError("verified_delivery_failed")
@@ -801,13 +831,21 @@ def _deliver(
     try:
         environment = tool_environment(configured)
         result = subprocess.run(
-            command, text=True, capture_output=True, timeout=timeout,
-            check=False, env=environment,
+            command,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+            env=environment,
         )
         if _legacy_drain_retry(command, result):
             result = subprocess.run(
-                command[:-4], text=True, capture_output=True,
-                timeout=15, check=False, env=environment,
+                command[:-4],
+                text=True,
+                capture_output=True,
+                timeout=15,
+                check=False,
+                env=environment,
             )
         if result.returncode != 0:
             raise AdapterError("verified_delivery_failed")
@@ -835,7 +873,9 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 captured.extend(_capture_current(hook, configured))
             except (AdapterError, OSError, subprocess.SubprocessError) as exc:
-                _record_degraded(str(exc) if isinstance(exc, AdapterError) else "adapter_runtime_failed")
+                _record_degraded(
+                    str(exc) if isinstance(exc, AdapterError) else "adapter_runtime_failed"
+                )
             finally:
                 with suppress(OSError, ValueError):
                     clear_prompt(hook)
