@@ -625,6 +625,7 @@ def _record_degraded(reason: str) -> None:
 
 
 _NOT_YET = {"single_final_answer_not_proven", "transcript_unreadable"}
+_POLLABLE = {"single_final_answer_not_proven"}
 _POLL_ATTEMPTS = 5
 _POLL_INTERVAL = 0.2
 _PENDING_LIMIT = 10
@@ -665,6 +666,11 @@ def _capture_current(
 ) -> list[dict[str, Any]]:
     candidate = _candidate_from_hook(hook)
     root = _pending_root(configured)
+    for _path, prior in load_all(root):
+        if prior is not None and prior.key == candidate.key:
+            candidate.created_at = prior.created_at
+            candidate.attempts = prior.attempts
+            break
     # The Stop hook can be killed while polling or enqueuing. Persist first.
     save(root, candidate)
     for attempt in range(_POLL_ATTEMPTS):
@@ -674,7 +680,7 @@ def _capture_current(
         except AdapterError as exc:
             if str(exc) not in _NOT_YET:
                 raise
-            if attempt + 1 < _POLL_ATTEMPTS:
+            if str(exc) in _POLLABLE and attempt + 1 < _POLL_ATTEMPTS:
                 time.sleep(_POLL_INTERVAL)
                 continue
             return []
@@ -715,7 +721,8 @@ def drain_pending(
             envelopes = build_envelopes(candidate.hook(), declines=declines)
         except AdapterError as exc:
             if str(exc) in _NOT_YET:
-                candidate.attempts += 1
+                if str(exc) in _POLLABLE:
+                    candidate.attempts += 1
                 if expired(candidate):
                     _record_degraded("pending_expired")
                     path.unlink(missing_ok=True)
@@ -738,7 +745,6 @@ def drain_pending(
                 break
             candidate_captured.append(envelope)
         if failed:
-            candidate.attempts += 1
             if expired(candidate):
                 _record_degraded("pending_expired")
                 path.unlink(missing_ok=True)

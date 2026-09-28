@@ -10,7 +10,7 @@ import pytest
 from test_exchange_identity import answer, context, user
 
 from musubi_codex import stop
-from musubi_codex.pending import Candidate, save
+from musubi_codex.pending import Candidate, load_all, save
 
 
 @pytest.fixture(autouse=True)
@@ -170,3 +170,31 @@ def test_one_pending_enqueue_failure_does_not_block_later_candidate(
     assert seen == ["exchange.v1:codex:session:msg-a2"]
     remaining = list((root / "pending-exchange").glob("*.json"))
     assert len(remaining) == 1
+
+
+def test_infrastructure_retries_keep_attempt_budget_and_original_age(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = write(tmp_path / "transcript.jsonl", [
+        context("target"), user("msg-u1", "Question"), answer("msg-a1", "Answer"),
+    ])
+    root = tmp_path / "yua" / "home"
+    created_at = time.time() - 60
+    save(root, Candidate("session", "target", str(path), created_at=created_at, attempts=3))
+    monkeypatch.setattr(
+        stop, "_enqueue",
+        lambda _env, _config: (_ for _ in ()).throw(stop.AdapterError("shadow_enqueue_failed")),
+    )
+    monkeypatch.setattr(stop, "_record_degraded", lambda _reason: None)
+    for _ in range(2):
+        assert stop.drain_pending(stop.runtime_config()) == []
+        [(_path, candidate)] = load_all(root)
+        assert candidate is not None
+        assert candidate.attempts == 3
+        assert candidate.created_at == created_at
+    with pytest.raises(stop.AdapterError, match="shadow_enqueue_failed"):
+        stop._capture_current(hook(path), stop.runtime_config())
+    [(_path, candidate)] = load_all(root)
+    assert candidate is not None
+    assert candidate.attempts == 3
+    assert candidate.created_at == created_at
