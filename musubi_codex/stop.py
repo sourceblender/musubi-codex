@@ -319,12 +319,13 @@ def _exchange_records(transcript_path: Path, turn_id: str) -> list[dict[str, Any
     pending: list[tuple[str, str]] = []
     seen_messages: dict[str, tuple[str, str]] = {}
     exchanges: list[dict[str, Any]] = []
-    corrupt_since_final = False
+    span_problem: str | None = None
+    target_finals = 0
     for record in _records(lines):
         if not isinstance(record, dict):
             # A bad record can hide an input. A later final closes that
             # uncertain span; it does not poison every subsequent exchange.
-            corrupt_since_final = True
+            span_problem = "transcript_identity_span_corrupt"
             continue
         if record.get("type") == "turn_context":
             payload = record.get("payload")
@@ -342,55 +343,84 @@ def _exchange_records(transcript_path: Path, turn_id: str) -> list[dict[str, Any
             continue
         message_id = message.get("id")
         if not isinstance(message_id, str) or not message_id:
-            if current_turn == turn_id:
-                raise AdapterError("host_message_id_missing")
-            corrupt_since_final = True
+            span_problem = "host_message_id_missing"
+            if role == "assistant":
+                if current_turn == turn_id:
+                    target_finals += 1
+                    exchanges.append({"decline_reason": span_problem})
+                pending.clear()
+                span_problem = None
             continue
         if role == "user":
             metadata = message.get("internal_chat_message_metadata_passthrough")
             kinds = metadata.get("content_item_kinds") if isinstance(metadata, dict) else None
             if not isinstance(kinds, list) or not kinds or not all(isinstance(k, str) for k in kinds):
-                raise AdapterError("input_provenance_missing")
+                span_problem = "input_provenance_missing"
+                continue
             known = {"user.text", "user.image", "agents_md.instructions", "environments.environment_context", "plugins.recommendations"}
             if any(k not in known for k in kinds):
-                raise AdapterError("input_provenance_unknown")
-            parts = _text_parts(message, "input_text")
+                span_problem = "input_provenance_unknown"
+                continue
+            try:
+                parts = _text_parts(message, "input_text")
+            except AdapterError as exc:
+                span_problem = str(exc)
+                continue
             text_value = "\n\n".join(parts)
             signature = (role, text_value)
             if message_id in seen_messages:
                 if seen_messages[message_id] != signature:
-                    raise AdapterError("host_message_id_collision")
+                    span_problem = "host_message_id_collision"
                 continue
             seen_messages[message_id] = signature
             if any(k.startswith("user.") for k in kinds):
                 if not parts:
-                    raise AdapterError("primary_user_text_missing")
+                    span_problem = "primary_user_text_missing"
+                    continue
                 pending.append((message_id, text_value))
             continue
-        parts = _text_parts(message, "output_text", allow_blank=True)
+        try:
+            parts = _text_parts(message, "output_text", allow_blank=True)
+        except AdapterError as exc:
+            span_problem = str(exc)
+            parts = []
         if len(parts) != 1:
-            raise AdapterError("final_answer_text_invalid")
+            span_problem = "final_answer_text_invalid"
+            if current_turn == turn_id:
+                target_finals += 1
+                exchanges.append({"decline_reason": span_problem})
+            pending.clear()
+            span_problem = None
+            continue
         signature = (role, parts[0])
         if message_id in seen_messages:
             if seen_messages[message_id] != signature:
-                raise AdapterError("host_message_id_collision")
+                if current_turn == turn_id:
+                    target_finals += 1
+                    exchanges.append({"decline_reason": "host_message_id_collision"})
+                pending.clear()
+                span_problem = None
             continue
         seen_messages[message_id] = signature
         if current_turn == turn_id:
-            if corrupt_since_final:
-                raise AdapterError("transcript_identity_span_corrupt")
-            exchanges.append(
-                {"answer_id": message_id, "assistant_text": parts[0],
-                 "inputs": list(pending), "turn_id": turn_id}
-            )
+            target_finals += 1
+            if span_problem:
+                exchanges.append({"decline_reason": span_problem})
+            else:
+                exchanges.append(
+                    {"answer_id": message_id, "assistant_text": parts[0],
+                     "inputs": list(pending), "turn_id": turn_id}
+                )
         pending.clear()
-        corrupt_since_final = False
-    if not exchanges:
+        span_problem = None
+    if not target_finals:
         raise AdapterError("single_final_answer_not_proven")
     return exchanges
 
 
-def build_envelopes(hook: dict[str, Any]) -> list[dict[str, Any]]:
+def build_envelopes(
+    hook: dict[str, Any], *, declines: list[str] | None = None
+) -> list[dict[str, Any]]:
     required = ("session_id", "turn_id")
     if any(not isinstance(hook.get(key), str) or not hook[key] for key in required):
         raise AdapterError("hook_identity_missing")
@@ -401,9 +431,15 @@ def build_envelopes(hook: dict[str, Any]) -> list[dict[str, Any]]:
     exchanges = _exchange_records(Path(transcript_path), hook["turn_id"])
     envelopes: list[dict[str, Any]] = []
     for exchange in exchanges:
+        if "decline_reason" in exchange:
+            if declines is not None:
+                declines.append(exchange["decline_reason"])
+            continue
         inputs = exchange["inputs"]
         if not inputs:
-            raise AdapterError("no_eligible_input")
+            if declines is not None:
+                declines.append("no_eligible_input")
+            continue
         assistant_text = exchange["assistant_text"]
         receipts: list[dict[str, Any]] | None = None
         if not assistant_text.strip():
@@ -411,7 +447,16 @@ def build_envelopes(hook: dict[str, Any]) -> list[dict[str, Any]]:
             # receipt-backed recovery path only when the old turn parser can
             # prove one final; multiple blank finals need finer receipt
             # association and must fail closed.
-            _user, assistant_text, receipts = _parse_turn(Path(transcript_path), hook["turn_id"])
+            try:
+                _user, assistant_text, receipts = _parse_turn(
+                    Path(transcript_path), hook["turn_id"]
+                )
+            except ExpectedNoCapture:
+                continue
+            except AdapterError as exc:
+                if declines is not None:
+                    declines.append(str(exc))
+                continue
         input_ids = [item[0] for item in inputs]
         encoded_ids = json.dumps(input_ids, ensure_ascii=False, separators=(",", ":"))
         encoded_texts = json.dumps(
@@ -463,7 +508,10 @@ def build_envelopes(hook: dict[str, Any]) -> list[dict[str, Any]]:
 
 def build_envelope(hook: dict[str, Any]) -> dict[str, Any]:
     """Compatibility helper for a hook resolving exactly one exchange."""
-    envelopes = build_envelopes(hook)
+    declines: list[str] = []
+    envelopes = build_envelopes(hook, declines=declines)
+    if not envelopes and declines:
+        raise AdapterError(declines[0])
     if len(envelopes) != 1:
         raise AdapterError("multiple_exchange_envelopes")
     return envelopes[0]
@@ -582,7 +630,14 @@ def main() -> int:
         if not isinstance(payload, dict):
             raise AdapterError("hook_payload_invalid")
         hook = payload
-        envelopes = build_envelopes(hook)
+        declines: list[str] = []
+        envelopes = build_envelopes(hook, declines=declines)
+        for reason in declines:
+            _record_degraded(reason)
+        if not envelopes:
+            clear_prompt(hook)
+            print("{}")
+            return 0
         configured = runtime_config()
         db = _data_root() / configured.actor / configured.zone / "shadow.db"
         command = [_harness(), "--db", str(db), "enqueue"]

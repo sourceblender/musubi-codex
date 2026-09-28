@@ -34,7 +34,7 @@ def _run_stop(
     monkeypatch.setattr(
         stop,
         "build_envelopes",
-        lambda _hook: [{"actor": "tama", "zone": "home", "event_id": "one"}],
+        lambda _hook, **_kwargs: [{"actor": "tama", "zone": "home", "event_id": "one"}],
     )
     degraded: list[str] = []
     monkeypatch.setattr(stop, "_record_degraded", degraded.append)

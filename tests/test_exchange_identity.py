@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from musubi_codex.stop import AdapterError, build_envelopes
+from musubi_codex.stop import build_envelopes
 from musubi_codex.stop import main as stop_main
 
 
@@ -43,10 +43,15 @@ def answer(identity: str, text: str) -> dict:
     }}
 
 
-def envelopes(tmp_path: Path, rows: list[dict], turn: str = "target") -> list[dict]:
+def envelopes(
+    tmp_path: Path, rows: list[dict], turn: str = "target", declines: list[str] | None = None
+) -> list[dict]:
     path = tmp_path / "transcript.jsonl"
     path.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
-    return build_envelopes({"session_id": "session", "turn_id": turn, "transcript_path": str(path)})
+    return build_envelopes(
+        {"session_id": "session", "turn_id": turn, "transcript_path": str(path)},
+        declines=declines,
+    )
 
 
 def test_two_finals_under_one_turn_have_distinct_identity_and_spans(tmp_path: Path) -> None:
@@ -82,8 +87,9 @@ def test_duplicate_serialization_of_one_host_message_is_not_a_new_input(tmp_path
 
 
 def test_unknown_input_kind_declines_instead_of_guessing(tmp_path: Path) -> None:
-    with pytest.raises(AdapterError, match="input_provenance_unknown"):
-        envelopes(tmp_path, [context("target"), user("msg-u1", "unknown", kind="future.kind"), answer("msg-a1", "Reply")])
+    declined: list[str] = []
+    assert not envelopes(tmp_path, [context("target"), user("msg-u1", "unknown", kind="future.kind"), answer("msg-a1", "Reply")], declines=declined)
+    assert declined == ["input_provenance_unknown"]
 
 
 def test_many_input_ids_use_digest_and_count(tmp_path: Path) -> None:
@@ -110,8 +116,29 @@ def test_per_record_text_digest_detects_same_joined_display_text(tmp_path: Path)
 def test_missing_answer_id_declines(tmp_path: Path) -> None:
     final = answer("msg-a1", "Reply")
     del final["payload"]["id"]
-    with pytest.raises(AdapterError, match="host_message_id_missing"):
-        envelopes(tmp_path, [context("target"), user("msg-u1", "Prompt"), final])
+    declined: list[str] = []
+    assert not envelopes(tmp_path, [context("target"), user("msg-u1", "Prompt"), final], declines=declined)
+    assert declined == ["host_message_id_missing"]
+
+
+def test_context_only_final_declines_without_dropping_later_valid_final(tmp_path: Path) -> None:
+    rows = [
+        context("target"), user("msg-c1", "<env>", kind="environments.environment_context"),
+        answer("msg-a1", "One"), user("msg-u2", "Real question"), answer("msg-a2", "Two"),
+    ]
+    result = envelopes(tmp_path, rows)
+    assert [item["event_id"] for item in result] == ["exchange.v1:codex:session:msg-a2"]
+
+
+def test_bad_provenance_in_earlier_turn_does_not_poison_next(tmp_path: Path) -> None:
+    old = user("msg-old", "older Codex record")
+    del old["payload"]["internal_chat_message_metadata_passthrough"]
+    rows = [
+        context("earlier"), old, answer("msg-a0", "Old answer"),
+        context("target"), user("msg-u1", "Now"), answer("msg-a1", "One"),
+    ]
+    result = envelopes(tmp_path, rows)
+    assert [item["event_id"] for item in result] == ["exchange.v1:codex:session:msg-a1"]
 
 
 def test_stop_enqueues_both_finals_under_one_turn(
