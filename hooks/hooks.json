@@ -15,7 +15,7 @@
           {
             "type": "command",
             "command": "musubi-codex-stop --drain-only",
-            "timeout": 40
+            "timeout": 20
           }
         ]
       }

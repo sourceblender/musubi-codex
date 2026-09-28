@@ -20,7 +20,7 @@ from typing import Any
 
 from musubi_harness import RuntimeConfig, RuntimeConfigError
 
-from .pending import Candidate, expired, load_all, save
+from .pending import Candidate, candidate_key, expired, load_all, save
 from .prompt_stage import clear_prompt
 from .runtime import (
     data_root,
@@ -665,6 +665,8 @@ def _capture_current(
 ) -> list[dict[str, Any]]:
     candidate = _candidate_from_hook(hook)
     root = _pending_root(configured)
+    # The Stop hook can be killed while polling or enqueuing. Persist first.
+    save(root, candidate)
     for attempt in range(_POLL_ATTEMPTS):
         declines: list[str] = []
         try:
@@ -675,7 +677,6 @@ def _capture_current(
             if attempt + 1 < _POLL_ATTEMPTS:
                 time.sleep(_POLL_INTERVAL)
                 continue
-            save(root, candidate)
             return []
         for reason in declines:
             _record_degraded(reason)
@@ -685,7 +686,8 @@ def _capture_current(
             except (AdapterError, OSError, subprocess.SubprocessError):
                 save(root, candidate)
                 raise
-        (root / "pending-exchange" / f"{candidate.key}.json").unlink(missing_ok=True)
+        if configured.delivery_mode == "shadow":
+            (root / "pending-exchange" / f"{candidate.key}.json").unlink(missing_ok=True)
         return envelopes
     raise AssertionError("poll loop exhausted")
 
@@ -726,6 +728,7 @@ def drain_pending(
         for reason in declines:
             _record_degraded(reason)
         failed = False
+        candidate_captured: list[dict[str, Any]] = []
         for envelope in envelopes:
             try:
                 _enqueue(envelope, configured)
@@ -733,7 +736,7 @@ def drain_pending(
                 _record_degraded("shadow_enqueue_failed")
                 failed = True
                 break
-            captured.append(envelope)
+            candidate_captured.append(envelope)
         if failed:
             candidate.attempts += 1
             if expired(candidate):
@@ -742,49 +745,68 @@ def drain_pending(
             else:
                 save(root, candidate)
             continue
-        path.unlink(missing_ok=True)
+        captured.extend(candidate_captured)
+        if configured.delivery_mode == "shadow":
+            path.unlink(missing_ok=True)
+        # Leave room for the current Stop and the verified-delivery pass.
+        # A later hook drains the next candidate in the backlog.
+        if candidate_captured:
+            break
     return captured
 
 
-def _deliver(envelopes: list[dict[str, Any]], configured: RuntimeConfig) -> None:
-    commands: list[tuple[list[str], int]] = []
+def _deliver(
+    envelopes: list[dict[str, Any]], configured: RuntimeConfig, *, drain_only: bool = False
+) -> None:
+    if configured.delivery_mode == "shadow" or not envelopes:
+        return
+    groups: dict[str, list[dict[str, Any]]] = {}
     for envelope in envelopes:
-        pair = delivery_commands(envelope, configured)
-        if pair:
-            commands.append(pair[0])
-    if envelopes:
-        pair = delivery_commands(envelopes[-1], configured)
-        if len(pair) > 1:
-            commands.append(pair[1])
-    for command, timeout in commands:
-        try:
-            environment = (
-                tool_environment(configured)
-                if "--memory-data-bin" in command
-                else local_tool_environment(configured)
-            )
-            result = subprocess.run(
-                command,
-                text=True,
-                capture_output=True,
-                timeout=timeout,
-                check=False,
-                env=environment,
-            )
-            if _legacy_drain_retry(command, result):
+        metadata = envelope.get("metadata", {})
+        if isinstance(metadata, dict) and isinstance(metadata.get("session_id"), str) and isinstance(metadata.get("turn_id"), str):
+            key = candidate_key(metadata["session_id"], metadata["turn_id"])
+        else:
+            key = envelope["event_id"]  # compatibility with synthetic test envelopes
+        groups.setdefault(key, []).append(envelope)
+    staged = False
+    for key, group in groups.items():
+        all_staged = True
+        for envelope in group:
+            command, timeout = delivery_commands(envelope, configured)[0]
+            try:
                 result = subprocess.run(
-                    command[:-4],
-                    text=True,
-                    capture_output=True,
-                    timeout=15,
-                    check=False,
-                    env=environment,
+                    command, text=True, capture_output=True, timeout=timeout,
+                    check=False, env=local_tool_environment(configured),
                 )
-            if result.returncode != 0:
-                raise AdapterError("verified_delivery_failed")
-        except (AdapterError, OSError, subprocess.SubprocessError):
-            _record_degraded("verified_delivery_failed")
-            # Continue staging other captured answers, even if one command fails.
+                if result.returncode != 0:
+                    raise AdapterError("verified_delivery_failed")
+                staged = True
+            except (AdapterError, OSError, subprocess.SubprocessError):
+                _record_degraded("verified_delivery_failed")
+                all_staged = False
+        if all_staged:
+            (_pending_root(configured) / "pending-exchange" / f"{key}.json").unlink(missing_ok=True)
+    if not staged or drain_only:
+        return
+    pair = delivery_commands(envelopes[-1], configured)
+    if len(pair) < 2:
+        return
+    command, timeout = pair[1]
+    try:
+        environment = tool_environment(configured)
+        result = subprocess.run(
+            command, text=True, capture_output=True, timeout=timeout,
+            check=False, env=environment,
+        )
+        if _legacy_drain_retry(command, result):
+            result = subprocess.run(
+                command[:-4], text=True, capture_output=True,
+                timeout=15, check=False, env=environment,
+            )
+        if result.returncode != 0:
+            raise AdapterError("verified_delivery_failed")
+    except (AdapterError, OSError, subprocess.SubprocessError):
+        _record_degraded("verified_delivery_failed")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -811,7 +833,7 @@ def main(argv: list[str] | None = None) -> int:
             finally:
                 with suppress(OSError, ValueError):
                     clear_prompt(hook)
-        _deliver(captured, configured)
+        _deliver(captured, configured, drain_only=drain_only)
     except (
         AdapterError,
         RuntimeConfigError,

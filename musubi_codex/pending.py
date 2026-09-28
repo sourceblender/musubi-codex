@@ -36,8 +36,7 @@ class Candidate:
 
     @property
     def key(self) -> str:
-        encoded = json.dumps([self.session_id, self.turn_id], separators=(",", ":"))
-        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+        return candidate_key(self.session_id, self.turn_id)
 
     def hook(self) -> dict[str, str]:
         return {
@@ -49,6 +48,11 @@ class Candidate:
 
 def directory(root: Path) -> Path:
     return root / "pending-exchange"
+
+
+def candidate_key(session_id: str, turn_id: str) -> str:
+    encoded = json.dumps([session_id, turn_id], separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def save(root: Path, candidate: Candidate) -> Path:

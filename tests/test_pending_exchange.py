@@ -68,6 +68,52 @@ def test_enqueue_failure_keeps_candidate_for_replay(
     assert not candidate_path.exists()
 
 
+def test_candidate_exists_before_enqueue_attempt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = write(tmp_path / "transcript.jsonl", [
+        context("target"), user("msg-u1", "Question"), answer("msg-a1", "Answer"),
+    ])
+    root = tmp_path / "yua" / "home" / "pending-exchange"
+
+    def observe(_env: dict, _config: object) -> None:
+        assert len(list(root.glob("*.json"))) == 1
+
+    monkeypatch.setattr(stop, "_enqueue", observe)
+    stop._capture_current(hook(path), stop.runtime_config())
+
+
+def test_stage_failure_keeps_candidate_until_restage_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = write(tmp_path / "transcript.jsonl", [
+        context("target"), user("msg-u1", "Question"), answer("msg-a1", "Answer"),
+    ])
+    config = stop.RuntimeConfig(
+        actor="yua", presence="yua/command-chair", zone="home", delivery_mode="verified"
+    )
+    monkeypatch.setattr(stop, "_enqueue", lambda _env, _config: None)
+    captured = stop._capture_current(hook(path), config)
+    [candidate_path] = list((tmp_path / "yua" / "home" / "pending-exchange").glob("*.json"))
+    monkeypatch.setattr(stop, "delivery_commands", lambda env, cfg: [(["stage"], 5), (["drain"], 24)])
+    monkeypatch.setattr(stop, "local_tool_environment", lambda _cfg: {})
+    monkeypatch.setattr(stop, "tool_environment", lambda _cfg: {})
+
+    def fail_stage(argv: list[str], **_kwargs: object) -> object:
+        return type("Result", (), {"returncode": 1})()
+
+    monkeypatch.setattr(stop.subprocess, "run", fail_stage)
+    stop._deliver(captured, config, drain_only=True)
+    assert candidate_path.exists()
+
+    def pass_stage(argv: list[str], **_kwargs: object) -> object:
+        return type("Result", (), {"returncode": 0})()
+
+    monkeypatch.setattr(stop.subprocess, "run", pass_stage)
+    stop._deliver(captured, config, drain_only=True)
+    assert not candidate_path.exists()
+
+
 def test_one_pending_enqueue_failure_does_not_block_later_candidate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
