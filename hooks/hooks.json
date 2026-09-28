@@ -9,6 +9,15 @@
             "timeout": 7
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "musubi-codex-stop --drain-only",
+            "timeout": 40
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

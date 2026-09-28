@@ -31,11 +31,12 @@ def _run_stop(
     monkeypatch.setattr(stop, "local_tool_environment", lambda _config: {"LOCAL": "1"})
     monkeypatch.setattr(stop, "tool_environment", lambda _config: {"MUSUBI_TOKEN": "synthetic"})
     monkeypatch.setattr(stop, "clear_prompt", lambda _hook: None)
-    monkeypatch.setattr(
-        stop,
-        "build_envelopes",
-        lambda _hook, **_kwargs: [{"actor": "tama", "zone": "home", "event_id": "one"}],
-    )
+    def capture_current(_hook: dict[str, object], configured: RuntimeConfig) -> list[dict[str, str]]:
+        envelope = {"actor": "tama", "zone": "home", "event_id": "one"}
+        stop._enqueue(envelope, configured)
+        return [envelope]
+
+    monkeypatch.setattr(stop, "_capture_current", capture_current)
     degraded: list[str] = []
     monkeypatch.setattr(stop, "_record_degraded", degraded.append)
     monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id":"s"}'))

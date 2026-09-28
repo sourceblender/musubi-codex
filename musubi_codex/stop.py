@@ -12,6 +12,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import time
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,6 +20,7 @@ from typing import Any
 
 from musubi_harness import RuntimeConfig, RuntimeConfigError
 
+from .pending import Candidate, expired, load_all, save
 from .prompt_stage import clear_prompt
 from .runtime import (
     data_root,
@@ -622,50 +624,140 @@ def _record_degraded(reason: str) -> None:
         pass
 
 
-def main() -> int:
-    hook: dict[str, Any] | None = None
-    retain_staged_prompt = False
-    try:
-        payload = json.load(sys.stdin)
-        if not isinstance(payload, dict):
-            raise AdapterError("hook_payload_invalid")
-        hook = payload
+_NOT_YET = {"single_final_answer_not_proven", "transcript_unreadable"}
+_POLL_ATTEMPTS = 5
+_POLL_INTERVAL = 0.2
+_PENDING_LIMIT = 10
+_PENDING_BUDGET = 4.0
+
+
+def _pending_root(configured: RuntimeConfig) -> Path:
+    return _data_root() / configured.actor / configured.zone
+
+
+def _enqueue(envelope: dict[str, Any], configured: RuntimeConfig) -> None:
+    db = _pending_root(configured) / "shadow.db"
+    result = subprocess.run(
+        [_harness(), "--db", str(db), "enqueue"],
+        input=json.dumps(envelope),
+        text=True,
+        capture_output=True,
+        timeout=8,
+        check=False,
+        env=local_tool_environment(configured),
+    )
+    if result.returncode != 0:
+        raise AdapterError("shadow_enqueue_failed")
+
+
+def _candidate_from_hook(hook: dict[str, Any]) -> Candidate:
+    for field in ("session_id", "turn_id", "transcript_path"):
+        if not isinstance(hook.get(field), str) or not hook[field]:
+            raise AdapterError("hook_identity_missing" if field != "transcript_path" else "transcript_unavailable")
+    return Candidate(
+        session_id=hook["session_id"], turn_id=hook["turn_id"],
+        transcript_path=hook["transcript_path"], created_at=time.time(),
+    )
+
+
+def _capture_current(
+    hook: dict[str, Any], configured: RuntimeConfig
+) -> list[dict[str, Any]]:
+    candidate = _candidate_from_hook(hook)
+    root = _pending_root(configured)
+    for attempt in range(_POLL_ATTEMPTS):
         declines: list[str] = []
-        envelopes = build_envelopes(hook, declines=declines)
+        try:
+            envelopes = build_envelopes(candidate.hook(), declines=declines)
+        except AdapterError as exc:
+            if str(exc) not in _NOT_YET:
+                raise
+            if attempt + 1 < _POLL_ATTEMPTS:
+                time.sleep(_POLL_INTERVAL)
+                continue
+            save(root, candidate)
+            return []
         for reason in declines:
             _record_degraded(reason)
-        if not envelopes:
-            clear_prompt(hook)
-            print("{}")
-            return 0
-        configured = runtime_config()
-        db = _data_root() / configured.actor / configured.zone / "shadow.db"
-        command = [_harness(), "--db", str(db), "enqueue"]
-        retain_staged_prompt = True
         for envelope in envelopes:
-            result = subprocess.run(
-                command,
-                input=json.dumps(envelope),
-                text=True,
-                capture_output=True,
-                timeout=8,
-                check=False,
-                env=local_tool_environment(configured),
-            )
-            if result.returncode != 0:
-                raise AdapterError("shadow_enqueue_failed")
-        retain_staged_prompt = False
-        clear_prompt(hook)
-        commands: list[tuple[list[str], int]] = []
+            try:
+                _enqueue(envelope, configured)
+            except (AdapterError, OSError, subprocess.SubprocessError):
+                save(root, candidate)
+                raise
+        (root / "pending-exchange" / f"{candidate.key}.json").unlink(missing_ok=True)
+        return envelopes
+    raise AssertionError("poll loop exhausted")
+
+
+def drain_pending(
+    configured: RuntimeConfig, *, skip_key: str | None = None
+) -> list[dict[str, Any]]:
+    """Enqueue older candidates independently; one failure cannot block the rest."""
+    root = _pending_root(configured)
+    deadline = time.monotonic() + _PENDING_BUDGET
+    captured: list[dict[str, Any]] = []
+    handled = 0
+    for path, candidate in load_all(root):
+        if handled >= _PENDING_LIMIT or time.monotonic() >= deadline:
+            break
+        if candidate is not None and candidate.key == skip_key:
+            continue
+        handled += 1
+        if candidate is None:
+            _record_degraded("pending_unreadable")
+            path.unlink(missing_ok=True)
+            continue
+        declines: list[str] = []
+        try:
+            envelopes = build_envelopes(candidate.hook(), declines=declines)
+        except AdapterError as exc:
+            if str(exc) in _NOT_YET:
+                candidate.attempts += 1
+                if expired(candidate):
+                    _record_degraded("pending_expired")
+                    path.unlink(missing_ok=True)
+                else:
+                    save(root, candidate)
+                continue
+            _record_degraded(str(exc))
+            path.unlink(missing_ok=True)
+            continue
+        for reason in declines:
+            _record_degraded(reason)
+        failed = False
         for envelope in envelopes:
-            pair = delivery_commands(envelope, configured)
-            if pair:
-                commands.append(pair[0])
-        if envelopes:
-            pair = delivery_commands(envelopes[-1], configured)
-            if len(pair) > 1:
-                commands.append(pair[1])
-        for command, timeout in commands:
+            try:
+                _enqueue(envelope, configured)
+            except (AdapterError, OSError, subprocess.SubprocessError):
+                _record_degraded("shadow_enqueue_failed")
+                failed = True
+                break
+            captured.append(envelope)
+        if failed:
+            candidate.attempts += 1
+            if expired(candidate):
+                _record_degraded("pending_expired")
+                path.unlink(missing_ok=True)
+            else:
+                save(root, candidate)
+            continue
+        path.unlink(missing_ok=True)
+    return captured
+
+
+def _deliver(envelopes: list[dict[str, Any]], configured: RuntimeConfig) -> None:
+    commands: list[tuple[list[str], int]] = []
+    for envelope in envelopes:
+        pair = delivery_commands(envelope, configured)
+        if pair:
+            commands.append(pair[0])
+    if envelopes:
+        pair = delivery_commands(envelopes[-1], configured)
+        if len(pair) > 1:
+            commands.append(pair[1])
+    for command, timeout in commands:
+        try:
             environment = (
                 tool_environment(configured)
                 if "--memory-data-bin" in command
@@ -690,10 +782,36 @@ def main() -> int:
                 )
             if result.returncode != 0:
                 raise AdapterError("verified_delivery_failed")
-    except ExpectedNoCapture:
-        if hook is not None:
-            with suppress(OSError, ValueError):
-                clear_prompt(hook)
+        except (AdapterError, OSError, subprocess.SubprocessError):
+            _record_degraded("verified_delivery_failed")
+            # Continue staging other captured answers, even if one command fails.
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    drain_only = "--drain-only" in args
+    hook: dict[str, Any] | None = None
+    try:
+        raw = sys.stdin.read()
+        payload = json.loads(raw) if raw.strip() else {}
+        if not isinstance(payload, dict):
+            raise AdapterError("hook_payload_invalid")
+        hook = payload
+        configured = runtime_config()
+        skip_key: str | None = None
+        if not drain_only:
+            with suppress(AdapterError):
+                skip_key = _candidate_from_hook(hook).key
+        captured = drain_pending(configured, skip_key=skip_key)
+        if not drain_only:
+            try:
+                captured.extend(_capture_current(hook, configured))
+            except (AdapterError, OSError, subprocess.SubprocessError) as exc:
+                _record_degraded(str(exc) if isinstance(exc, AdapterError) else "adapter_runtime_failed")
+            finally:
+                with suppress(OSError, ValueError):
+                    clear_prompt(hook)
+        _deliver(captured, configured)
     except (
         AdapterError,
         RuntimeConfigError,
@@ -701,9 +819,6 @@ def main() -> int:
         OSError,
         subprocess.SubprocessError,
     ) as exc:
-        if hook is not None and not retain_staged_prompt:
-            with suppress(OSError, ValueError):
-                clear_prompt(hook)
         if isinstance(exc, (RuntimeConfigError, AdapterError)):
             reason = str(exc)
         else:

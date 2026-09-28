@@ -128,7 +128,7 @@ def test_stop_clears_prompt_only_after_successful_shadow_enqueue(
     assert read_prompt(submitted) is None
 
 
-def test_failed_enqueue_keeps_prompt_for_retry(
+def test_failed_enqueue_keeps_pending_candidate_for_retry(
     configured: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     submitted = {"session_id": "s", "turn_id": "t", "prompt": "Do the task"}
@@ -141,7 +141,9 @@ def test_failed_enqueue_keeps_prompt_for_retry(
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(stopped)))
     assert stop_main() == 0
     assert capsys.readouterr().out == "{}\n"
-    assert read_prompt(submitted) == "Do the task"
+    assert read_prompt(submitted) is None
+    pending = list((configured / "tama" / "home" / "pending-exchange").glob("*.json"))
+    assert len(pending) == 1
 
 
 def test_null_final_stop_clears_terminal_prompt(
