@@ -114,6 +114,38 @@ def test_stage_failure_keeps_candidate_until_restage_succeeds(
     assert not candidate_path.exists()
 
 
+def test_verified_decline_only_current_releases_candidate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = write(tmp_path / "transcript.jsonl", [
+        context("target"), user("msg-c1", "host context", kind="environments.environment_context"),
+        answer("msg-a1", "Answer"),
+    ])
+    config = stop.RuntimeConfig(
+        actor="yua", presence="yua/command-chair", zone="home", delivery_mode="verified"
+    )
+    monkeypatch.setattr(stop, "_record_degraded", lambda _reason: None)
+    assert stop._capture_current(hook(path), config) == []
+    assert not list((tmp_path / "yua" / "home" / "pending-exchange").glob("*.json"))
+
+
+def test_verified_decline_only_pending_releases_candidate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = write(tmp_path / "transcript.jsonl", [
+        context("target"), user("msg-c1", "host context", kind="environments.environment_context"),
+        answer("msg-a1", "Answer"),
+    ])
+    config = stop.RuntimeConfig(
+        actor="yua", presence="yua/command-chair", zone="home", delivery_mode="verified"
+    )
+    root = tmp_path / "yua" / "home"
+    candidate_path = save(root, Candidate("session", "target", str(path), created_at=time.time()))
+    monkeypatch.setattr(stop, "_record_degraded", lambda _reason: None)
+    assert stop.drain_pending(config) == []
+    assert not candidate_path.exists()
+
+
 def test_one_pending_enqueue_failure_does_not_block_later_candidate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

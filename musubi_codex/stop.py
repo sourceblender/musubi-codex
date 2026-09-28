@@ -686,7 +686,7 @@ def _capture_current(
             except (AdapterError, OSError, subprocess.SubprocessError):
                 save(root, candidate)
                 raise
-        if configured.delivery_mode == "shadow":
+        if configured.delivery_mode == "shadow" or not envelopes:
             (root / "pending-exchange" / f"{candidate.key}.json").unlink(missing_ok=True)
         return envelopes
     raise AssertionError("poll loop exhausted")
@@ -746,7 +746,7 @@ def drain_pending(
                 save(root, candidate)
             continue
         captured.extend(candidate_captured)
-        if configured.delivery_mode == "shadow":
+        if configured.delivery_mode == "shadow" or not candidate_captured:
             path.unlink(missing_ok=True)
         # Leave room for the current Stop and the verified-delivery pass.
         # A later hook drains the next candidate in the backlog.
