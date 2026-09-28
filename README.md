@@ -28,7 +28,7 @@ This is the **Codex plugin**. It packages:
   - `musubi-codex-session-start` — bounded continuity block
   - `musubi-codex-user-prompt-submit` — private turn-scoped prompt staging
   - `musubi-codex-stop` — turn capture adapter
-  - `musubi-codex-interrupt` — discard a prompt for an interrupted turn
+  - `musubi-codex-interrupt` — retain an interrupted prompt for the next exchange
 
 The plugin depends on [`musubi-harness`](https://github.com/sourceblender/musubi-harness),
 which contains all host-neutral code (envelope contract, outbox, delivery state
@@ -70,7 +70,7 @@ then trust those exact definitions. Codex does not auto-trust newly installed
 command hooks. Run `musubi-codex-session-start` in the same shell to check its
 local continuity output before relying on the hook.
 
-The package requires `musubi-harness` 1.3.1 or later. Its bundled HTTP transport
+The package requires `musubi-harness` 1.7.0 or later. Its bundled HTTP transport
 can reach Musubi without the private operator `memory-data` binary. A missing
 connection reports unavailable; it does not mean the memory set is empty.
 
