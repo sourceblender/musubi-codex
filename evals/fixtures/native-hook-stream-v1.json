@@ -86,7 +86,7 @@
     }
   ],
   "expected": {
-    "event_id": "codex:thr-proof-001:turn-proof-001",
+    "event_id": "exchange.v1:codex:thr-proof-001:msg-a-proof-001",
     "user_text": "Write a release note for checksum 7f3c.",
     "assistant_text": "Release note: checksum 7f3c is verified.",
     "shadow_event_count": 1,

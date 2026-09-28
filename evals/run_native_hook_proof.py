@@ -69,8 +69,64 @@ def main() -> int:
             "PLUGIN_DATA": str(state),
             "CODEX_HOME": str(state / "codex-home"),
         }
+        transcript = state / "rollout.jsonl"
+        transcript.write_text(
+            "\n".join(
+                json.dumps(row)
+                for row in [
+                    {"type": "turn_context", "payload": {"turn_id": "turn-other"}},
+                    {
+                        "type": "response_item",
+                        "payload": {
+                            "type": "message",
+                            "role": "assistant",
+                            "phase": "final_answer",
+                            "id": "msg-a-other",
+                            "content": [{"type": "output_text", "text": "This is another turn."}],
+                        },
+                    },
+                    {"type": "turn_context", "payload": {"turn_id": "turn-proof-001"}},
+                    {
+                        "type": "response_item",
+                        "payload": {
+                            "type": "message",
+                            "role": "user",
+                            "id": "msg-u-proof-001",
+                            "content": [
+                                {
+                                    "type": "input_text",
+                                    "text": "Write a release note for checksum 7f3c.",
+                                }
+                            ],
+                            "internal_chat_message_metadata_passthrough": {
+                                "content_item_kinds": ["user.text"]
+                            },
+                        },
+                    },
+                    {
+                        "type": "response_item",
+                        "payload": {
+                            "type": "message",
+                            "role": "assistant",
+                            "phase": "final_answer",
+                            "id": "msg-a-proof-001",
+                            "content": [
+                                {
+                                    "type": "output_text",
+                                    "text": "Release note: checksum 7f3c is verified.",
+                                }
+                            ],
+                        },
+                    },
+                    {"type": "turn_context", "payload": {"turn_id": "turn-proof-003"}},
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
 
-        for event in fixture["events"]:
+        for frozen_event in fixture["events"]:
+            event = {**frozen_event, "transcript_path": str(transcript)}
             name = event["hook_event_name"]
             command = _command(manifest, name)
             if command is None:
