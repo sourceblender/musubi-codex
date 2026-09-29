@@ -6,6 +6,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-29
+
+### Fixed
+
+- Capture each completed Codex assistant answer with the ordered user input
+  span that led to it, including turns that contain more than one final answer.
+  An uncertain exchange is declined on its own without discarding later valid
+  exchanges from the same turn.
+- Stage Stop candidates before polling the transcript, retry bounded pending
+  work across hooks, and keep infrastructure failures age bounded. Capture
+  no longer depends on a single poll finding the whole exchange at once.
+
+### Changed
+
+- Require `musubi-harness>=1.7.0,<2` for the final-answer exchange contract.
+- CI now uses the Sourceblender standard for concurrency, permissions, and
+  pinned actions.
+
 ## [0.6.0] - 2026-09-26
 
 ### Changed

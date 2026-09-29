@@ -45,7 +45,7 @@ Python package first, in an environment whose console scripts are on the PATH
 used to launch Codex. Install the tagged release:
 
 ```bash
-uv tool install 'git+https://github.com/sourceblender/musubi-codex.git@v0.6.0'
+uv tool install 'git+https://github.com/sourceblender/musubi-codex.git@v0.7.0'
 uv tool update-shell  # only if uv says its tool bin directory is not on PATH
 ```
 

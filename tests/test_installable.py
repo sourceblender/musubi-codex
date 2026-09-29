@@ -9,12 +9,22 @@ fleet-tools repo but for the plugin side.
 from __future__ import annotations
 
 import importlib
+import json
 import os
 import subprocess
+import tomllib
 import venv
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+
+
+def test_release_versions_agree() -> None:
+    from musubi_codex import __version__
+
+    project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
+    manifest = json.loads((REPO / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
+    assert __version__ == project["project"]["version"] == manifest["version"]
 
 
 def _run_in_clean_interpreter(script: str) -> subprocess.CompletedProcess[str]:
