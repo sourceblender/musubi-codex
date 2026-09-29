@@ -264,5 +264,5 @@ Apache 2.0.
 ## Related repos
 
 - [`sourceblender/musubi-harness`](https://github.com/sourceblender/musubi-harness) — the host-neutral Python runtime
-- [`ericmey/musubi`](https://github.com/ericmey/musubi) — the Musubi core service
+- [`sourceblender/musubi`](https://github.com/sourceblender/musubi) — the Musubi core service
 - [`ericmey/openclaw-musubi`](https://github.com/ericmey/openclaw-musubi) — the OpenClaw adapter
