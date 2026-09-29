@@ -14,10 +14,14 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import tomllib
 from contextlib import suppress
 from pathlib import Path
 
 SOURCE = Path(os.environ.get("MUSUBI_CODE_ROOT", Path.cwd())).resolve()
+PROJECT_VERSION = tomllib.loads((SOURCE / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+    "version"
+]
 CODEX = shutil.which("codex")
 UV = shutil.which("uv")
 AUTH = Path(os.environ.get("CODEX_AUTH_PATH", Path.home() / ".codex" / "auth.json")).resolve()
@@ -211,8 +215,9 @@ def main():
                     for item in requests
                 )
                 and data_roots == [".musubi-codex-locators", "musubi-codex-musubi-codex"]
-                and receipt["python_plugin_version"] == "0.6.0"
-                and receipt["harness_version"] == "1.3.1"
+                and receipt["python_plugin_version"] == PROJECT_VERSION
+                and tuple(int(part) for part in receipt["harness_version"].split(".")[:3])
+                >= (1, 7, 0)
             )
             print(json.dumps(receipt, indent=2, sort_keys=True))
             return 0 if receipt["passed"] else 1
