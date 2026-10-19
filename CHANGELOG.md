@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Discover Engawa receipts inside successful Codex shell-result JSON envelopes.
+  Recognize current Matrix room, reply and reaction receipt routes while
+  retaining schema, digest, status and duplicate-ID checks. A blank final after
+  a Matrix acknowledgement now declines capture without a false missing-receipt
+  warning; partial sends remain ineligible for complete-message recovery.
+
 ## [0.7.0] - 2026-09-29
 
 ### Fixed
