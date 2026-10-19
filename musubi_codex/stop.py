@@ -84,9 +84,15 @@ def _tool_output_texts(item: dict[str, Any]) -> list[str]:
     return texts
 
 
-def _receipt_candidates(text: str) -> list[dict[str, Any]]:
-    """Find Engawa's one-line receipt without interpreting generic tool output."""
+def _receipt_candidates(text: str, *, _depth: int = 0) -> list[dict[str, Any]]:
+    """Read receipt lines, including successful Codex exec output envelopes.
+
+    Decode only the shell result's output field, never arbitrary nested JSON or
+    escaped text. Receipt schema, status and digest validation remains separate.
+    """
     found: list[dict[str, Any]] = []
+    if _depth > 3:
+        return found
     for line in text.splitlines():
         stripped = line.strip()
         if not stripped.startswith("{"):
@@ -95,8 +101,19 @@ def _receipt_candidates(text: str) -> list[dict[str, Any]]:
             value = json.loads(stripped)
         except json.JSONDecodeError:
             continue
-        if isinstance(value, dict) and value.get("kind") == "engawa.mutation_receipt":
+        if not isinstance(value, dict):
+            continue
+        if value.get("kind") == "engawa.mutation_receipt":
             found.append(value)
+        elif (
+            isinstance(value.get("chunk_id"), str)
+            and value["chunk_id"]
+            and isinstance(value.get("wall_time_seconds"), (int, float))
+            and not isinstance(value.get("exit_code"), bool)
+            and value.get("exit_code") == 0
+            and isinstance(value.get("output"), str)
+        ):
+            found.extend(_receipt_candidates(value["output"], _depth=_depth + 1))
     return found
 
 
@@ -112,6 +129,9 @@ def _validated_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
         raise AdapterError("bridge_receipt_route_invalid")
     route_kind = route.get("kind")
     allowed = {
+        "matrix-room": ("submitted", True),
+        "matrix-reply": ({"submitted", "submitted-signature-failed"}, True),
+        "matrix-reaction": ("reaction-applied", True),
         "discord-channel": ("submitted", True),
         "discord-dm": ("submitted", True),
         "discord-reply": ({"submitted", "submitted-signature-failed"}, True),
