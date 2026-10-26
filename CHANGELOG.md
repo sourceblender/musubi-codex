@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-26
+
+### Fixed
+
+- Return hook-compatible output from native project context binding, avoiding
+  invalid UserPromptSubmit and PreToolUse JSON warnings while preserving the
+  direct-client binding response. The installed host proof now requires both
+  native binding hook event types to complete successfully.
+
 ## [0.8.1] - 2026-10-26
 
 ### Fixed
