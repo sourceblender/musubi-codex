@@ -45,7 +45,7 @@ Python package first, in an environment whose console scripts are on the PATH
 used to launch Codex. Install the tagged release:
 
 ```bash
-uv tool install 'git+https://github.com/sourceblender/musubi-codex.git@v0.7.0'
+uv tool install 'git+https://github.com/sourceblender/musubi-codex.git@v0.8.0'
 uv tool update-shell  # only if uv says its tool bin directory is not on PATH
 ```
 
@@ -103,7 +103,7 @@ refuses remote recall and delivery; the Musubi server remains the authority
 for token validity. The shared data directory still holds separate actor/zone outboxes;
 it is not a security boundary between processes running as the same OS user.
 
-### Project settings (desktop and CLI; unreleased)
+### Project settings (desktop and CLI)
 
 Projects can opt into a plugin-owned `.codex/musubi.toml`. This is **not** an
 extra table in Codex's `config.toml`: Codex controls plugin activation and tool
