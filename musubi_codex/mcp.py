@@ -10,7 +10,9 @@ from typing import Any, TextIO
 from musubi_harness.plugin_mcp import (
     SERVER_INSTRUCTIONS,
     PluginMcpFacade,
-    tool_definitions,
+)
+from musubi_harness.plugin_mcp import (
+    tool_definitions as shared_tool_definitions,
 )
 from musubi_harness.plugin_runtime import RuntimeConfig, RuntimeConfigError
 
@@ -29,6 +31,28 @@ command_for = _facade.command_for
 remember_command = _facade.remember_command
 call_tool = _facade.call_tool
 response_for = _facade.response_for
+
+
+def tool_definitions() -> list[dict[str, Any]]:
+    return [
+        *shared_tool_definitions(),
+        {
+            "name": "musubi_bind_context",
+            "description": "Bind this connection to native Codex project context. Called by the plugin's PreToolUse hook; does not change remote memory.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"cwd": {"type": "string"}, "session_id": {"type": "string"}},
+                "required": ["cwd", "session_id"],
+                "additionalProperties": False,
+            },
+            "annotations": {
+                "readOnlyHint": False,
+                "destructiveHint": False,
+                "idempotentHint": True,
+                "openWorldHint": False,
+            },
+        },
+    ]
 
 
 def _unavailable(request_id: object, detail: str) -> dict[str, Any]:
@@ -60,7 +84,36 @@ def serve(*, stdin: Iterable[str], stdout: TextIO) -> int:
                 raise ValueError
             method = request.get("method")
             params = request.get("params")
-            if (
+            if method == "tools/list" and request.get("id") is not None:
+                response: dict[str, Any] | None = {
+                    "jsonrpc": "2.0",
+                    "id": request["id"],
+                    "result": {"tools": tool_definitions()},
+                }
+            elif (
+                method == "tools/call"
+                and request.get("id") is not None
+                and isinstance(params, dict)
+                and params.get("name") == "musubi_bind_context"
+            ):
+                try:
+                    args = params.get("arguments")
+                    if (
+                        not isinstance(args, dict)
+                        or set(args) != {"cwd", "session_id"}
+                        or not all(isinstance(v, str) for v in args.values())
+                    ):
+                        raise RuntimeConfigError("project_binding_arguments_invalid")
+                    result = runtime.bind_context(args["cwd"], args["session_id"])
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": request["id"],
+                        "result": {"content": [{"type": "text", "text": json.dumps(result)}]},
+                    }
+                except RuntimeConfigError as exc:
+                    runtime._context_error = str(exc)
+                    response = _unavailable(request["id"], str(exc))
+            elif (
                 method == "tools/call"
                 and request.get("id") is not None
                 and isinstance(params, dict)
@@ -69,7 +122,7 @@ def serve(*, stdin: Iterable[str], stdout: TextIO) -> int:
                 try:
                     configured = runtime.runtime_config()
                 except (DataLocatorError, RuntimeConfigError) as exc:
-                    response: dict[str, Any] | None = _unavailable(request.get("id"), str(exc))
+                    response = _unavailable(request.get("id"), str(exc))
                 else:
                     response = _facade.response_for(request, configured)
             else:

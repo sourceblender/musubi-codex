@@ -28,6 +28,7 @@ from .runtime import (
     local_tool_environment,
     memory_data_bin,
     plugin_config,
+    runtime,
     runtime_config,
     tool_environment,
 )
@@ -697,11 +698,14 @@ def _candidate_from_hook(hook: dict[str, Any]) -> Candidate:
             raise AdapterError(
                 "hook_identity_missing" if field != "transcript_path" else "transcript_unavailable"
             )
+    project_config, project_fingerprint = runtime.project_reference()
     return Candidate(
         session_id=hook["session_id"],
         turn_id=hook["turn_id"],
         transcript_path=hook["transcript_path"],
         created_at=time.time(),
+        project_config=project_config,
+        project_fingerprint=project_fingerprint,
     )
 
 
@@ -710,6 +714,11 @@ def _capture_current(hook: dict[str, Any], configured: RuntimeConfig) -> list[di
     root = _pending_root(configured)
     for _path, prior in load_all(root):
         if prior is not None and prior.key == candidate.key:
+            if (prior.project_config, prior.project_fingerprint) != (
+                candidate.project_config,
+                candidate.project_fingerprint,
+            ):
+                raise AdapterError("pending_project_context_mismatch")
             candidate.created_at = prior.created_at
             candidate.attempts = prior.attempts
             break
@@ -753,6 +762,13 @@ def drain_pending(
             break
         if candidate is not None and candidate.key == skip_key:
             continue
+        if (
+            candidate is not None
+            and (candidate.project_config, candidate.project_fingerprint)
+            != runtime.project_reference()
+        ):
+            # Keep this candidate for its original project/policy; never reinterpret it.
+            continue
         handled += 1
         if candidate is None:
             _record_degraded("pending_unreadable")
@@ -762,6 +778,11 @@ def drain_pending(
         try:
             envelopes = build_envelopes(candidate.hook(), declines=declines)
         except AdapterError as exc:
+            if str(exc).startswith("project_"):
+                # Configuration may have changed after this hook resolved its
+                # context. Keep the original candidate; do not delete or relabel it.
+                _record_degraded(str(exc))
+                continue
             if str(exc) in _NOT_YET:
                 if str(exc) in _POLLABLE:
                     candidate.attempts += 1
@@ -794,6 +815,8 @@ def drain_pending(
                 save(root, candidate)
             continue
         captured.extend(candidate_captured)
+        with suppress(OSError, ValueError):
+            clear_prompt(dict(candidate.hook()))
         if configured.delivery_mode == "shadow" or not candidate_captured:
             path.unlink(missing_ok=True)
         # Leave room for the current Stop and the verified-delivery pass.
@@ -883,23 +906,31 @@ def main(argv: list[str] | None = None) -> int:
         if not isinstance(payload, dict):
             raise AdapterError("hook_payload_invalid")
         hook = payload
-        configured = runtime_config()
-        skip_key: str | None = None
-        if not drain_only:
-            with suppress(AdapterError):
-                skip_key = _candidate_from_hook(hook).key
-        captured = drain_pending(configured, skip_key=skip_key)
-        if not drain_only:
+        with runtime.hook_context(hook, honor_turn=not drain_only):
             try:
-                captured.extend(_capture_current(hook, configured))
-            except (AdapterError, OSError, subprocess.SubprocessError) as exc:
-                _record_degraded(
-                    str(exc) if isinstance(exc, AdapterError) else "adapter_runtime_failed"
-                )
-            finally:
-                with suppress(OSError, ValueError):
-                    clear_prompt(hook)
-        _deliver(captured, configured, drain_only=drain_only)
+                configured = runtime_config()
+            except RuntimeConfigError:
+                # The accepted binding still identifies the original private root.
+                # Preserve the transcript reference there for recovery after repair.
+                if not drain_only and runtime._project is not None:
+                    save(_pending_root(runtime._project.config), _candidate_from_hook(hook))
+                raise
+            skip_key: str | None = None
+            if not drain_only:
+                with suppress(AdapterError):
+                    skip_key = _candidate_from_hook(hook).key
+            captured = drain_pending(configured, skip_key=skip_key)
+            if not drain_only:
+                try:
+                    captured.extend(_capture_current(hook, configured))
+                except (AdapterError, OSError, subprocess.SubprocessError) as exc:
+                    _record_degraded(
+                        str(exc) if isinstance(exc, AdapterError) else "adapter_runtime_failed"
+                    )
+                finally:
+                    with suppress(OSError, ValueError):
+                        clear_prompt(hook)
+            _deliver(captured, configured, drain_only=drain_only)
     except (
         AdapterError,
         RuntimeConfigError,

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import os
+import sys
 
 from musubi_harness.plugin_continuity import MAX_CONTENT, MAX_ROWS, PluginContinuity
 from musubi_harness.plugin_runtime import RuntimeConfigError
@@ -32,7 +34,19 @@ def continuity_block() -> str:
 
 
 def main() -> int:
-    print(continuity_block())
+    try:
+        raw = "" if sys.stdin.isatty() else sys.stdin.read()
+        hook = json.loads(raw) if raw.strip() else {}
+        if not isinstance(hook, dict):
+            raise ValueError("hook_payload_invalid")
+        with runtime.hook_context(hook):
+            if runtime._project is not None:
+                runtime.data_root()  # Publish the actual plugin-data locator before MCP writes.
+            print(continuity_block())
+    except (RuntimeConfigError, ValueError, OSError):
+        print(
+            "## Musubi continuity\nMusubi recent: unavailable (project_context_invalid). Do not interpret this as an empty memory set."
+        )
     return 0
 
 

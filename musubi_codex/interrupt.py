@@ -8,6 +8,7 @@ import sys
 from musubi_harness import RuntimeConfigError
 
 from .prompt_stage import clear_prompt
+from .runtime import runtime
 
 
 def main() -> int:
@@ -15,7 +16,8 @@ def main() -> int:
         hook = json.load(sys.stdin)
         if not isinstance(hook, dict):
             raise ValueError("hook_payload_invalid")
-        clear_prompt(hook)
+        with runtime.hook_context(hook, honor_turn=True):
+            clear_prompt(hook)
     except (RuntimeConfigError, ValueError, OSError, json.JSONDecodeError):
         pass
     print("{}")

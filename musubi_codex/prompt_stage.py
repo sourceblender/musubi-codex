@@ -8,7 +8,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from .runtime import data_root, runtime_config
+from .runtime import data_root, runtime, runtime_config
 
 
 def _identity(hook: dict[str, object]) -> tuple[str, str, str]:
@@ -35,6 +35,7 @@ def store_prompt(hook: dict[str, object]) -> None:
     if not isinstance(prompt, str) or not prompt.strip():
         raise ValueError("prompt_missing")
     path = _path(hook)
+    runtime.record_turn(hook)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(path.parent, 0o700)
     payload = {

@@ -1,5 +1,23 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^mcp__.*musubi.*__musubi_(recent|search|get|remember|status)$",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "musubi-codex",
+            "tool": "musubi_bind_context",
+            "input": {
+              "cwd": "${cwd}",
+              "session_id": "${session_id}"
+            },
+            "timeout": 5,
+            "statusMessage": "Binding Musubi project context"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
@@ -28,6 +46,21 @@
             "command": "musubi-codex-user-prompt-submit",
             "timeout": 6,
             "additionalContextLimit": 1200
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "musubi-codex",
+            "tool": "musubi_bind_context",
+            "input": {
+              "cwd": "${cwd}",
+              "session_id": "${session_id}"
+            },
+            "timeout": 5,
+            "statusMessage": "Binding Musubi project context"
           }
         ]
       }
