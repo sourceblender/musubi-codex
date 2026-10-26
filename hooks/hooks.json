@@ -10,7 +10,8 @@
             "tool": "musubi_bind_context",
             "input": {
               "cwd": "${cwd}",
-              "session_id": "${session_id}"
+              "session_id": "${session_id}",
+              "hook_event_name": "${hook_event_name}"
             },
             "timeout": 5,
             "statusMessage": "Binding Musubi project context"
@@ -57,7 +58,8 @@
             "tool": "musubi_bind_context",
             "input": {
               "cwd": "${cwd}",
-              "session_id": "${session_id}"
+              "session_id": "${session_id}",
+              "hook_event_name": "${hook_event_name}"
             },
             "timeout": 5,
             "statusMessage": "Binding Musubi project context"

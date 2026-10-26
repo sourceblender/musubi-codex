@@ -159,6 +159,9 @@ must first call `musubi_bind_context` with the intended project `cwd` and native
 `session_id`. A raw API call does not trigger the agent-loop pre-tool hook.
 Ordinary desktop and CLI turns bind through the prompt/pre-tool hooks; no model
 supplied identity arguments or reliance on undocumented `_meta` fields is needed.
+Native binding hooks also send `hook_event_name` so the binding tool returns an
+empty successful hook-output object; direct API callers omit it and retain the
+`ok`/`mode` binding result.
 See [the installed host proof](evals/project-settings-proof.md) for the tested
 startup, resume, fork, and capture paths. Install the Python commands and plugin
 bundle from the same candidate/release; a shell startup file that prepends an

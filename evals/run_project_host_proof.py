@@ -305,12 +305,18 @@ def main() -> int:
                 start_new_session=True,
             )
             mailbox: queue.Queue[dict] = queue.Queue()
+            binding_hooks: list[dict] = []
 
             def read_api() -> None:
                 assert api.stdout is not None
                 for line in api.stdout:
                     with suppress(ValueError):
-                        mailbox.put(json.loads(line))
+                        message = json.loads(line)
+                        if message.get("method") == "hook/completed":
+                            run = message.get("params", {}).get("run", {})
+                            if run.get("statusMessage") == "Binding Musubi project context":
+                                binding_hooks.append(run)
+                        mailbox.put(message)
 
             threading.Thread(target=read_api, daemon=True).start()
             sequence = 0
@@ -497,6 +503,10 @@ def main() -> int:
                 "desktop_explicit_client_binding": explicit_ok,
                 "desktop_resume": resume_ok,
                 "desktop_fork_to_other_project": fork_ok,
+                "desktop_binding_hooks_succeeded": bool(binding_hooks)
+                and {h.get("eventName") for h in binding_hooks}
+                >= {"userPromptSubmit", "preToolUse"}
+                and all(h.get("status") == "completed" for h in binding_hooks),
             }
             report = {
                 "codex_version": subprocess.run(
