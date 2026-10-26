@@ -20,6 +20,8 @@ MAX_CONTEXT_CHARS = 1200
 
 
 def _enabled() -> bool:
+    if runtime._project is not None:
+        return runtime._project.prompt_recall
     if os.environ.get("MUSUBI_ACTOR"):
         # A launcher identity makes the shared plugin-data preference
         # inapplicable to this seat. Opt in per process instead.

@@ -103,6 +103,83 @@ refuses remote recall and delivery; the Musubi server remains the authority
 for token validity. The shared data directory still holds separate actor/zone outboxes;
 it is not a security boundary between processes running as the same OS user.
 
+### Project settings (desktop and CLI; unreleased)
+
+Projects can opt into a plugin-owned `.codex/musubi.toml`. This is **not** an
+extra table in Codex's `config.toml`: Codex controls plugin activation and tool
+policy; Musubi owns the settings below. Use the same installed plugin for
+multiple projects, each with its own identity and connection file:
+
+```toml
+# <project>/.codex/musubi.toml
+schema_version = 1
+actor = "yua"
+presence = "yua/command-chair"
+zone = "home"
+env_file = ".env"
+delivery_mode = "shadow" # verified delivery still requires explicit opt-in
+prompt_recall = false   # semantic prompt recall remains opt-in
+```
+
+Relative `env_file` paths resolve beside `musubi.toml`; this example reads
+`<project>/.codex/.env`. That owner-only file supplies `MUSUBI_API_URL` and
+`MUSUBI_TOKEN`. Keep it untracked and set its permissions to `0600`. Never put a
+token in the TOML or plugin manifest. The dotenv reader treats values as data:
+it supports `KEY=value`, optional `export`, quoted strings and comments, but
+does not execute shell code, expand variables, or resolve `op://` references.
+Provision references through the secret manager before use. Unrelated keys in
+a shared project env file are not loaded. Optional identity/policy keys in that
+file must agree with the TOML.
+
+Hooks discover the nearest `.codex/musubi.toml` from the native event's `cwd`,
+stopping at a Git worktree boundary. An optional absolute `MUSUBI_CONFIG_FILE`
+in the launching environment selects a specific file instead. A complete
+launcher identity still owns its connection and policy; a conflicting project
+identity or partial launcher identity is refused. No project file means the
+existing launcher and single-seat file modes continue unchanged. Invalid or
+unreadable project files do not silently fall back to another configuration.
+
+The plugin's `UserPromptSubmit` and `PreToolUse` MCP hooks call
+`musubi_bind_context` with Codex's `cwd` and `session_id` before ordinary Musubi tools. The server advertises tools
+before binding, so early MCP startup does not require an identity. Binding is
+idempotent for one project/session and refuses incompatible rebinding. This
+uses Codex's documented MCP tool-hook mechanism, not a shared last-project
+marker or model-generated identity arguments. **Review and trust the new
+MCP tool-hook definitions after upgrading.** Project mode is host-tested with
+Codex 0.164.0 and requires a client that supports `mcp_tool` hooks. Keep the
+existing plugin release on older hosts that cannot parse those handlers.
+SessionStart alone cannot bind MCP reliably because
+it can run before the server is ready. If the hook is disabled or unsupported,
+do not rely on automatic project mode; a complete launcher environment still
+works on supported hosts.
+Single-seat global file configuration must not be used as a multi-seat fallback.
+
+Clients calling the App Server's `mcpServer/tool/call` API without a user turn
+must first call `musubi_bind_context` with the intended project `cwd` and native
+`session_id`. A raw API call does not trigger the agent-loop pre-tool hook.
+Ordinary desktop and CLI turns bind through the prompt/pre-tool hooks; no model
+supplied identity arguments or reliance on undocumented `_meta` fields is needed.
+See [the installed host proof](evals/project-settings-proof.md) for the tested
+startup, resume, fork, and capture paths. Install the Python commands and plugin
+bundle from the same candidate/release; a shell startup file that prepends an
+older command installation can otherwise run mismatched hook code.
+
+Project outboxes live at
+`$PLUGIN_DATA/projects/<configuration fingerprint>/<actor>/<zone>/shadow.db`.
+The fingerprint includes the config location, identity, credential-file
+location, and policy, but no secrets. Projects sharing actor/zone cannot drain
+one another's queues. Credential content can rotate in place without changing
+the outbox. Identity, policy, or credential-file location changes require a new
+binding and select a separate outbox; old pending captures remain in their
+original context rather than being silently migrated. Existing non-project
+outboxes and pending records are unchanged.
+
+Project settings and credentials must belong to the current OS user, must not
+be symlink files, and must not be writable by other users. The credential file
+must also be unreadable by other users. These checks prevent accidental
+cross-project configuration; they are not a security boundary between processes
+running as the same OS user. Musubi remains the authority for token validity.
+
 ### Single-seat file mode
 
 Without a launcher identity, put the Musubi connection in `connection.json`

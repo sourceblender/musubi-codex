@@ -9,6 +9,7 @@ from musubi_harness import RuntimeConfigError
 
 from .prompt_recall import context_for
 from .prompt_stage import store_prompt
+from .runtime import runtime
 
 
 def main() -> int:
@@ -16,8 +17,9 @@ def main() -> int:
         hook = json.load(sys.stdin)
         if not isinstance(hook, dict):
             raise ValueError("hook_payload_invalid")
-        store_prompt(hook)
-        context = context_for(hook["prompt"])
+        with runtime.hook_context(hook):
+            store_prompt(hook)
+            context = context_for(hook["prompt"])
     except (RuntimeConfigError, ValueError, OSError, json.JSONDecodeError):
         # Capture is advisory; Stop falls back to the existing transcript path.
         pass

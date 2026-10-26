@@ -21,10 +21,15 @@ REQUIRED = {"UserPromptSubmit", "Stop", "Interrupt"}
 
 def _command(hooks: dict[str, Any], event: str) -> list[str] | None:
     definitions = hooks.get(event)
-    if not isinstance(definitions, list) or len(definitions) != 1:
+    if not isinstance(definitions, list):
         return None
-    commands = definitions[0].get("hooks")
-    if not isinstance(commands, list) or len(commands) != 1:
+    commands = [
+        hook
+        for group in definitions
+        for hook in group.get("hooks", [])
+        if hook.get("type") == "command"
+    ]
+    if len(commands) != 1:
         return None
     raw = commands[0].get("command")
     if not isinstance(raw, str) or not raw:
@@ -126,7 +131,7 @@ def main() -> int:
         )
 
         for frozen_event in fixture["events"]:
-            event = {**frozen_event, "transcript_path": str(transcript)}
+            event = {**frozen_event, "transcript_path": str(transcript), "cwd": str(state)}
             name = event["hook_event_name"]
             command = _command(manifest, name)
             if command is None:

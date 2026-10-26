@@ -20,8 +20,20 @@ class Candidate:
     transcript_path: str
     created_at: float
     attempts: int = 0
+    project_config: str | None = None
+    project_fingerprint: str | None = None
 
     def __post_init__(self) -> None:
+        if (self.project_config is None) != (self.project_fingerprint is None):
+            raise ValueError("pending_project_context_invalid")
+        if self.project_config is not None and (
+            not isinstance(self.project_config, str)
+            or not Path(self.project_config).is_absolute()
+            or not isinstance(self.project_fingerprint, str)
+            or len(self.project_fingerprint) != 64
+            or any(c not in "0123456789abcdef" for c in self.project_fingerprint)
+        ):
+            raise ValueError("pending_project_context_invalid")
         if any(
             not isinstance(value, str) or not value
             for value in (self.session_id, self.turn_id, self.transcript_path)
@@ -68,7 +80,12 @@ def save(root: Path, candidate: Candidate) -> Path:
     fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(asdict(candidate), handle, ensure_ascii=False, sort_keys=True)
+            payload = asdict(candidate)
+            if candidate.project_config is None:
+                # Preserve the original shape for launcher/file-mode rollback.
+                payload.pop("project_config")
+                payload.pop("project_fingerprint")
+            json.dump(payload, handle, ensure_ascii=False, sort_keys=True)
         os.replace(temporary, target)
     finally:
         temporary.unlink(missing_ok=True)

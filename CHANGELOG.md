@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Opt-in project settings in `.codex/musubi.toml`, with owner-only dotenv
+  credentials and one resolver across continuity, prompt staging, capture,
+  interruption, and startup recovery. Existing launcher and single-seat file
+  deployments remain supported.
+- Native `PreToolUse` MCP context binding and supplemental
+  `musubi_bind_context` tool. Project-mode state is scoped by non-secret
+  configuration fingerprints; credential rotation preserves the queue, while
+  identity/policy edits cannot silently reinterpret pending captures.
+- Configuration validation, concurrent-project regressions, and an installed
+  native Codex host proof using two synthetic seats and a loopback-only Musubi.
+
 ### Fixed
 
 - Discover Engawa receipts inside successful Codex shell-result JSON envelopes.

@@ -1,0 +1,109 @@
+{
+  "checks": {
+    "bounded_startup_recovery": true,
+    "desktop_api_direct_call": true,
+    "desktop_explicit_client_binding": true,
+    "desktop_fork_to_other_project": true,
+    "desktop_resume": true,
+    "desktop_unbound_call_refused": true,
+    "expected_status_requests": true,
+    "native_context_binding": true,
+    "only_owned_loopback_requests": true,
+    "two_scoped_shadow_databases": true
+  },
+  "codex_version": "codex-cli 0.164.0",
+  "databases": [
+    {
+      "actor": "tama",
+      "rows": 2
+    },
+    {
+      "actor": "yua",
+      "rows": 3
+    }
+  ],
+  "passed": true,
+  "requests": [
+    {
+      "method": "POST",
+      "path": "/v1/retrieve",
+      "seat": "yua"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/retrieve",
+      "seat": "tama"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/ops/status",
+      "seat": "tama"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/ops/status",
+      "seat": "yua"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/ops/status",
+      "seat": "yua"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/retrieve",
+      "seat": "yua"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/ops/status",
+      "seat": "yua"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/ops/status",
+      "seat": "yua"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/ops/status",
+      "seat": "yua"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/ops/status",
+      "seat": "yua"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/retrieve",
+      "seat": "tama"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/ops/status",
+      "seat": "tama"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/ops/status",
+      "seat": "tama"
+    }
+  ],
+  "scope": "installed plugin, concurrent native CLI model calls and hooks, isolated home, loopback-only Musubi",
+  "sessions": {
+    "tama": {
+      "binding_called_by_model": false,
+      "exit_zero": true,
+      "status_called": true,
+      "successful_status": true
+    },
+    "yua": {
+      "binding_called_by_model": false,
+      "exit_zero": true,
+      "status_called": true,
+      "successful_status": true
+    }
+  },
+  "source_sha256": "18e45d951823b06fa3cfe3b82b9c0e05ed83f1091924fcbea568e4042f0c695d"
+}

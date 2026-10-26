@@ -5,6 +5,7 @@
       "cwd": ".",
       "env_vars": [
         "CODEX_HOME",
+        "MUSUBI_CONFIG_FILE",
         "MUSUBI_ACTOR",
         "MUSUBI_PRESENCE",
         "MUSUBI_ZONE",
