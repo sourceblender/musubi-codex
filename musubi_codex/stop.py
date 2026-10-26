@@ -390,9 +390,17 @@ def _exchange_records(transcript_path: Path, turn_id: str) -> list[dict[str, Any
                 "agents_md.instructions",
                 "environments.environment_context",
                 "plugins.recommendations",
+                "additional_content.codex_apps_open_page",
             }
             if any(k not in known for k in kinds):
                 span_problem = "input_provenance_unknown"
+                continue
+            if "additional_content.codex_apps_open_page" in kinds and any(
+                k.startswith("user.") for k in kinds
+            ):
+                # One record cannot safely attribute Page context and human input
+                # to separate text spans. Do not store Page content as user text.
+                span_problem = "input_provenance_mixed"
                 continue
             try:
                 parts = _text_parts(message, "input_text")
