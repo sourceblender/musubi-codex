@@ -132,6 +132,76 @@ def test_unknown_input_kind_declines_instead_of_guessing(tmp_path: Path) -> None
     assert declined == ["input_provenance_unknown"]
 
 
+@pytest.mark.parametrize("page_id", [None, "synthetic-page"])
+def test_desktop_page_context_is_not_a_human_input(tmp_path: Path, page_id: str | None) -> None:
+    page = user(
+        "msg-page",
+        "<external_codex_apps_open_page>"
+        + json.dumps({"page_id": page_id})
+        + "</external_codex_apps_open_page>",
+        kind="additional_content.codex_apps_open_page",
+    )
+    declined: list[str] = []
+    result = envelopes(
+        tmp_path,
+        [
+            context("target"),
+            page,
+            user("msg-u1", "Reloaded and live."),
+            answer("msg-a1", "The desktop connection works."),
+        ],
+        declines=declined,
+    )
+    assert not declined
+    assert len(result) == 1
+    assert result[0]["user_text"] == "Reloaded and live."
+    assert json.loads(result[0]["metadata"]["input_record_ids"]) == ["msg-u1"]
+
+
+def test_desktop_page_context_alone_is_not_eligible_input(tmp_path: Path) -> None:
+    declined: list[str] = []
+    assert not envelopes(
+        tmp_path,
+        [
+            context("target"),
+            user("msg-page", "Page context", kind="additional_content.codex_apps_open_page"),
+            answer("msg-a1", "Reply"),
+        ],
+        declines=declined,
+    )
+    assert declined == ["no_eligible_input"]
+
+
+@pytest.mark.parametrize("kind", ["additional_content.future_kind", "future.kind", "user.future"])
+def test_page_context_does_not_make_unknown_provenance_eligible(tmp_path: Path, kind: str) -> None:
+    declined: list[str] = []
+    assert not envelopes(
+        tmp_path,
+        [
+            context("target"),
+            user("msg-page", "Page context", kind="additional_content.codex_apps_open_page"),
+            user("msg-u1", "Question"),
+            user("msg-unknown", "Unknown", kind=kind),
+            answer("msg-a1", "Reply"),
+        ],
+        declines=declined,
+    )
+    assert declined == ["input_provenance_unknown"]
+
+
+def test_mixed_page_and_human_provenance_is_not_captured(tmp_path: Path) -> None:
+    mixed = user("msg-mixed", "Page contents and question")
+    mixed["payload"]["internal_chat_message_metadata_passthrough"]["content_item_kinds"] = [
+        "additional_content.codex_apps_open_page",
+        "user.text",
+    ]
+    declined: list[str] = []
+    assert not envelopes(
+        tmp_path, [context("target"), mixed, answer("msg-a1", "Reply")], declines=declined
+    )
+    assert declined == ["input_provenance_mixed"]
+
+
 def test_many_input_ids_use_digest_and_count(tmp_path: Path) -> None:
     rows = [context("target")]
     rows.extend(user(f"msg-u-{i:04d}-" + "x" * 32, f"Input {i}") for i in range(40))

@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Recognize the desktop's `additional_content.codex_apps_open_page` transcript
+  provenance as non-human context, including an empty Page selection. Keep it
+  out of captured user text and input IDs, while continuing to reject unknown
+  provenance and ambiguous records mixing Page context with human input.
+
 ## [0.8.0] - 2026-10-26
 
 ### Added

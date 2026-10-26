@@ -74,3 +74,16 @@ clears the recovered staged prompt. Credential rotation remains allowed.
 Additional checks cover duplicate acceptance, immutable private records without
 prompt text or secrets, symlink refusal, and unbound project Stop refusal. These
 regressions fence remote delivery; they do not write to production Musubi.
+
+## Desktop Page-context provenance
+
+Desktop turns can include a separate user-role context record classified as
+`additional_content.codex_apps_open_page`, including when its Page ID is null.
+The adapter treats this known type as non-human context. Regression fixtures
+cover null and synthetic Page IDs through both envelope projection and the
+actual project prompt/Stop entry points with real local SQLite enqueue.
+Only human input text and message IDs enter the resulting capture. Page-only
+input cannot create an exchange, unknown provenance still declines the span,
+and mixed Page/human provenance is refused because the text cannot be safely
+attributed. The observed failing desktop transcript was also projected locally
+with the candidate parser; no live capture or remote delivery was performed.

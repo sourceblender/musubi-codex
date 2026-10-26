@@ -20,6 +20,57 @@ from musubi_codex.runtime import runtime
 from musubi_codex.turn_binding import read_binding
 
 
+@pytest.mark.parametrize("page_id", [None, "synthetic-page"])
+def test_native_project_stop_captures_human_input_after_desktop_page_context(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, page_id: str | None
+) -> None:
+    data = tmp_path / "data"
+    monkeypatch.setenv("PLUGIN_DATA", str(data))
+    project(tmp_path)
+    transcript = tmp_path / "turn.jsonl"
+    hook = {
+        "cwd": str(tmp_path),
+        "session_id": "desktop-session",
+        "turn_id": "desktop-turn",
+        "prompt": "Reloaded and live.",
+        "transcript_path": str(transcript),
+    }
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(hook)))
+    assert user_prompt_submit.main() == 0
+    selected = read_binding(data, hook)
+    assert selected is not None
+    page = _user_message(
+        "<external_codex_apps_open_page>"
+        + json.dumps({"page_id": page_id})
+        + "</external_codex_apps_open_page>"
+    )
+    page["payload"]["internal_chat_message_metadata_passthrough"]["content_item_kinds"] = [
+        "additional_content.codex_apps_open_page",
+    ]
+    human = _user_message(hook["prompt"])
+    _write_transcript(
+        transcript,
+        [
+            _turn_context(hook["turn_id"]),
+            page,
+            human,
+            _assistant_message("The desktop connection works."),
+        ],
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(hook)))
+    assert stop.main([]) == 0
+    root = data / "projects" / selected.fingerprint / "yua/home"
+    with sqlite3.connect(root / "shadow.db") as connection:
+        rows = connection.execute("select envelope_json from capture_events").fetchall()
+    assert len(rows) == 1
+    envelope = json.loads(rows[0][0])
+    assert envelope["actor"] == "yua" and envelope["presence"] == "yua/codex"
+    assert envelope["user_text"] == hook["prompt"]
+    assert json.loads(envelope["metadata"]["input_record_ids"]) == [human["payload"]["id"]]
+    assert not load_all(root)
+    assert not list((root / "prompt-stage").glob("*.json"))
+
+
 @pytest.mark.parametrize("change", ["identity", "policy", "removed", "malformed", "credentials"])
 def test_native_turn_keeps_accepted_context(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: str
