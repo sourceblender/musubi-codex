@@ -2,6 +2,7 @@
   "checks": {
     "bounded_startup_recovery": true,
     "desktop_api_direct_call": true,
+    "desktop_binding_hooks_succeeded": true,
     "desktop_explicit_client_binding": true,
     "desktop_fork_to_other_project": true,
     "desktop_resume": true,
@@ -27,12 +28,12 @@
     {
       "method": "POST",
       "path": "/v1/retrieve",
-      "seat": "tama"
+      "seat": "yua"
     },
     {
       "method": "POST",
       "path": "/v1/retrieve",
-      "seat": "yua"
+      "seat": "tama"
     },
     {
       "method": "GET",
@@ -105,5 +106,5 @@
       "successful_status": true
     }
   },
-  "source_sha256": "15c2af343a2e8b0a608f1d9916fc62c62eb314df8a0f1bbd517b47fd7a4f0397"
+  "source_sha256": "4c67cdf9078c7c32f11e564422a1ae33cd241756bbe9358cb8beb8b0b2bd0bac"
 }
