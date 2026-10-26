@@ -60,3 +60,17 @@ Minimum-dependency checks also pass with musubi-harness 1.7.0 on Python 3.12.
 Use `MUSUBI_PROOF_DEBUG_DIR` only for private local debugging of this synthetic
 gate. On failure it can preserve local hook metadata, synthetic state, and
 client output. Those files are not release artifacts.
+
+## Review regression: configuration edits during a native turn
+
+`tests/test_turn_binding.py` calls the actual UserPromptSubmit and Stop entry
+points with a real transcript and the bundled harness's SQLite enqueue path.
+Identity edits (Yua to Tama), policy edits (shadow to verified), config removal,
+and malformed TOML create no replacement outbox or delivery call. The original
+candidate and staged prompt survive Stop and Interrupt. Restoring the original
+settings and calling startup drain produces exactly one Yua shadow capture and
+clears the recovered staged prompt. Credential rotation remains allowed.
+
+Additional checks cover duplicate acceptance, immutable private records without
+prompt text or secrets, symlink refusal, and unbound project Stop refusal. These
+regressions fence remote delivery; they do not write to production Musubi.

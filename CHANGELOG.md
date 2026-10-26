@@ -21,6 +21,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Persist the accepted project identity and policy before prompt staging. Stop
+  and Interrupt honor the original native turn binding across process restarts;
+  mid-turn settings edits preserve the original candidate for recovery instead
+  of capturing under a replacement identity or delivery policy.
+
 - Discover Engawa receipts inside successful Codex shell-result JSON envelopes.
   Recognize current Matrix room, reply and reaction receipt routes while
   retaining schema, digest, status and duplicate-ID checks. A blank final after

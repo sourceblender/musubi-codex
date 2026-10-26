@@ -57,6 +57,18 @@ class ProjectSettings:
     env_file: Path
     prompt_recall: bool
 
+    def snapshot(self) -> dict[str, object]:
+        """Non-secret settings sufficient to identify an accepted turn's context."""
+        return {
+            "schema_version": 1,
+            "actor": self.config.actor,
+            "presence": self.config.presence,
+            "zone": self.config.zone,
+            "env_file": str(self.env_file),
+            "delivery_mode": self.config.delivery_mode,
+            "prompt_recall": self.prompt_recall,
+        }
+
     @property
     def fingerprint(self) -> str:
         # Rotation of the secret at this location must not orphan pending captures.
@@ -115,6 +127,13 @@ def load(path: Path) -> ProjectSettings:
         raw = tomllib.loads(_read(path, private=False))
     except tomllib.TOMLDecodeError as exc:
         raise RuntimeConfigError("project_config_invalid") from exc
+    return from_snapshot(path, raw)
+
+
+def from_snapshot(path: Path, raw: dict[str, object]) -> ProjectSettings:
+    """Validate durable non-secret settings without rereading a changed config file."""
+    if not path.is_absolute():
+        raise RuntimeConfigError("project_config_path_invalid")
     allowed = {
         "schema_version",
         "actor",
@@ -133,7 +152,7 @@ def load(path: Path) -> ProjectSettings:
     for key in ("actor", "presence", "zone", "env_file"):
         if not isinstance(raw.get(key), str) or not raw[key]:
             raise RuntimeConfigError("project_config_invalid")
-    actor, presence, zone = raw["actor"], raw["presence"], raw["zone"]
+    actor, presence, zone = str(raw["actor"]), str(raw["presence"]), str(raw["zone"])
     parts = presence.split("/")
     if (
         len(parts) != 2
@@ -146,12 +165,14 @@ def load(path: Path) -> ProjectSettings:
     recall = raw.get("prompt_recall", False)
     if delivery not in ("shadow", "verified") or not isinstance(recall, bool):
         raise RuntimeConfigError("project_policy_invalid")
-    env_file = Path(raw["env_file"]).expanduser()
+    env_file = Path(str(raw["env_file"])).expanduser()
     if not env_file.is_absolute():
         env_file = path.parent / env_file
     return ProjectSettings(
         path.absolute(),
-        RuntimeConfig(actor=actor, presence=presence, zone=zone, delivery_mode=delivery),
+        RuntimeConfig(
+            actor=str(actor), presence=str(presence), zone=str(zone), delivery_mode=str(delivery)
+        ),
         env_file.absolute(),
         recall,
     )

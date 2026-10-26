@@ -27,12 +27,12 @@
     {
       "method": "POST",
       "path": "/v1/retrieve",
-      "seat": "yua"
+      "seat": "tama"
     },
     {
       "method": "POST",
       "path": "/v1/retrieve",
-      "seat": "tama"
+      "seat": "yua"
     },
     {
       "method": "GET",
@@ -105,5 +105,5 @@
       "successful_status": true
     }
   },
-  "source_sha256": "18e45d951823b06fa3cfe3b82b9c0e05ed83f1091924fcbea568e4042f0c695d"
+  "source_sha256": "3555ac1c61690a2c461bcac7a5442637c6802a9f683bdf333d9c76b2fdd4ae01"
 }

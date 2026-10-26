@@ -26,6 +26,7 @@ from musubi_harness.tokens import token_presence_problems
 from . import CODEX_DATA_NAME, STATE_NAME
 from .data_locator import DataLocatorError, publish_data_root, resolve_data_root
 from .project import ProjectSettings, discover, load
+from .turn_binding import read_binding, write_binding
 
 MCP_BIND_WAIT_SECONDS = 3.0
 
@@ -72,13 +73,23 @@ class CodexRuntime(PluginRuntime):
         return discover(cwd) if isinstance(cwd, str) else None
 
     @contextmanager
-    def hook_context(self, hook: dict[str, object]) -> Iterator[None]:
+    def hook_context(self, hook: dict[str, object], *, honor_turn: bool = False) -> Iterator[None]:
         previous = self._project
         try:
-            self._project = self._select_project(self._project_path(hook.get("cwd")))
+            binding = read_binding(self.base_data_root(), hook) if honor_turn else None
+            if binding is not None:
+                self._project = binding
+            else:
+                self._project = self._select_project(self._project_path(hook.get("cwd")))
+                if honor_turn and self._project is not None:
+                    raise RuntimeConfigError("project_turn_binding_missing")
             yield
         finally:
             self._project = previous
+
+    def record_turn(self, hook: dict[str, object]) -> None:
+        if self._project is not None:
+            write_binding(self.base_data_root(), hook, self._project)
 
     def bind_context(self, cwd: str, session_id: str) -> dict[str, object]:
         """Idempotent connection-local binding, supplied by a native MCP tool hook."""
@@ -174,6 +185,9 @@ class CodexRuntime(PluginRuntime):
             raise RuntimeConfigError("seat_identity_mismatch")
 
     def data_root(self) -> Path:
+        return self._storage_root(self.base_data_root())
+
+    def base_data_root(self) -> Path:
         if self._mcp_locator_mode:
             if self._mcp_bound_root is not None:
                 try:
@@ -186,7 +200,7 @@ class CodexRuntime(PluginRuntime):
                     or (info.st_dev, info.st_ino) != self._mcp_bound_identity
                 ):
                     raise DataLocatorError("plugin_data_locator_invalid")
-                return self._storage_root(self._mcp_bound_root)
+                return self._mcp_bound_root
             codex_home = os.environ.get("CODEX_HOME") or str(Path.home() / ".codex")
             deadline = time.monotonic() + MCP_BIND_WAIT_SECONDS
             while True:
@@ -211,7 +225,7 @@ class CodexRuntime(PluginRuntime):
                 raise DataLocatorError("plugin_data_locator_invalid")
             self._mcp_bound_root = root
             self._mcp_bound_identity = (info.st_dev, info.st_ino)
-            return self._storage_root(root)
+            return root
         root = super().data_root()
         # Hooks receive all three values from Codex. The MCP child does not
         # receive PLUGIN_DATA, so publish the observed path under CODEX_HOME.
@@ -223,7 +237,7 @@ class CodexRuntime(PluginRuntime):
             # continuing. The MCP process will refuse an absent locator.
             with suppress(DataLocatorError):
                 publish_data_root(codex_home, plugin_root, plugin_data)
-        return self._storage_root(root)
+        return root
 
     def _storage_root(self, root: Path) -> Path:
         if self._project is None:

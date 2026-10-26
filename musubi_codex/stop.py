@@ -815,6 +815,8 @@ def drain_pending(
                 save(root, candidate)
             continue
         captured.extend(candidate_captured)
+        with suppress(OSError, ValueError):
+            clear_prompt(dict(candidate.hook()))
         if configured.delivery_mode == "shadow" or not candidate_captured:
             path.unlink(missing_ok=True)
         # Leave room for the current Stop and the verified-delivery pass.
@@ -904,8 +906,15 @@ def main(argv: list[str] | None = None) -> int:
         if not isinstance(payload, dict):
             raise AdapterError("hook_payload_invalid")
         hook = payload
-        with runtime.hook_context(hook):
-            configured = runtime_config()
+        with runtime.hook_context(hook, honor_turn=not drain_only):
+            try:
+                configured = runtime_config()
+            except RuntimeConfigError:
+                # The accepted binding still identifies the original private root.
+                # Preserve the transcript reference there for recovery after repair.
+                if not drain_only and runtime._project is not None:
+                    save(_pending_root(runtime._project.config), _candidate_from_hook(hook))
+                raise
             skip_key: str | None = None
             if not drain_only:
                 with suppress(AdapterError):

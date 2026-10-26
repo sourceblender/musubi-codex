@@ -15,6 +15,7 @@ import json
 import os
 import queue
 import shutil
+import signal
 import sqlite3
 import subprocess
 import tempfile
@@ -301,6 +302,7 @@ def main() -> int:
                 stderr=subprocess.DEVNULL,
                 text=True,
                 bufsize=1,
+                start_new_session=True,
             )
             mailbox: queue.Queue[dict] = queue.Queue()
 
@@ -445,8 +447,13 @@ def main() -> int:
                     fork_status
                 )
             finally:
-                api.terminate()
+                # App Server can leave plugin-marketplace Git children running.
+                # Fence only this fixture's process group before deleting its HOME.
+                with suppress(ProcessLookupError):
+                    os.killpg(api.pid, signal.SIGTERM)
                 api.wait(timeout=5)
+                with suppress(ProcessLookupError):
+                    os.killpg(api.pid, signal.SIGKILL)
             # Stop may race the transcript's final flush. Exercise the same
             # bounded recovery command that the next native SessionStart runs.
             data = home / "plugins/data/musubi-codex-musubi-codex"

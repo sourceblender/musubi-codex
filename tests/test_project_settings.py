@@ -371,6 +371,9 @@ def test_each_hook_enters_project_context(
     project(tmp_path, "tama", recall=True)
     hook = {"cwd": str(tmp_path), "session_id": "s", "turn_id": "t", "prompt": "question"}
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(hook)))
+    if entry in {"stop", "interrupt"}:
+        with runtime.hook_context(hook):
+            runtime.record_turn(hook)
     observed = []
 
     def check(*_args: object, **_kwargs: object) -> None:

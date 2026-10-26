@@ -174,6 +174,22 @@ binding and select a separate outbox; old pending captures remain in their
 original context rather than being silently migrated. Existing non-project
 outboxes and pending records are unchanged.
 
+At prompt acceptance, project mode also writes an immutable, owner-only record
+at `$PLUGIN_DATA/turn-bindings/<session-and-turn hash>.json`. It contains native
+IDs and non-secret settings, including the credential-file path; it contains no
+prompt text or credentials. Stop and Interrupt resolve that record before the
+current project config. An edit to the accepted settings during a turn pauses
+capture, preserves the original staged prompt, and saves the transcript
+candidate in its original context. Restore the original settings and run that
+project's startup recovery to capture it under its accepted policy. A project
+Stop without an accepted binding fails closed; the native transcript remains
+available, but automatic capture cannot infer its original context.
+
+Completed-turn bindings are retained to fence delayed duplicate hooks. They
+share the plugin data lifecycle and currently have no automatic expiry. Do not
+remove them while old hooks may still run. Existing launcher/file deployments
+keep their current lifecycle behavior.
+
 Project settings and credentials must belong to the current OS user, must not
 be symlink files, and must not be writable by other users. The credential file
 must also be unreadable by other users. These checks prevent accidental

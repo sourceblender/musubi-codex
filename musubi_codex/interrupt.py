@@ -16,7 +16,7 @@ def main() -> int:
         hook = json.load(sys.stdin)
         if not isinstance(hook, dict):
             raise ValueError("hook_payload_invalid")
-        with runtime.hook_context(hook):
+        with runtime.hook_context(hook, honor_turn=True):
             clear_prompt(hook)
     except (RuntimeConfigError, ValueError, OSError, json.JSONDecodeError):
         pass
