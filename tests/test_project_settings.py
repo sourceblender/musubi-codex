@@ -475,4 +475,33 @@ def test_hook_manifest_binds_only_musubi_agent_tools() -> None:
     assert re.match(binding["matcher"], "mcp__musubi-codex__musubi_remember")
     assert not re.match(binding["matcher"], "mcp__musubi_codex__musubi_bind_context")
     assert not re.match(binding["matcher"], "mcp__unrelated__status")
-    assert binding["hooks"][0]["input"] == {"cwd": "${cwd}", "session_id": "${session_id}"}
+    assert binding["hooks"][0]["input"] == {
+        "cwd": "${cwd}",
+        "session_id": "${session_id}",
+        "hook_event_name": "${hook_event_name}",
+    }
+
+
+@pytest.mark.parametrize("event", [None, "UserPromptSubmit", "PreToolUse"])
+def test_native_binding_returns_hook_output(tmp_path: Path, event: str | None) -> None:
+    project(tmp_path)
+    request = {
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "name": "musubi_bind_context",
+            "arguments": {
+                "cwd": str(tmp_path),
+                "session_id": "s",
+                **({"hook_event_name": event} if event else {}),
+            },
+        },
+    }
+    output = io.StringIO()
+    mcp.serve(stdin=[json.dumps(request)], stdout=output)
+    result = json.loads(output.getvalue())["result"]
+    assert not result.get("isError")
+    assert json.loads(result["content"][0]["text"]) == (
+        {} if event else {"ok": True, "mode": "project"}
+    )
+    assert mcp.runtime.runtime_config().actor == "yua"

@@ -41,7 +41,14 @@ def tool_definitions() -> list[dict[str, Any]]:
             "description": "Bind this connection to native Codex project context. Called by the plugin's PreToolUse hook; does not change remote memory.",
             "inputSchema": {
                 "type": "object",
-                "properties": {"cwd": {"type": "string"}, "session_id": {"type": "string"}},
+                "properties": {
+                    "cwd": {"type": "string"},
+                    "session_id": {"type": "string"},
+                    "hook_event_name": {
+                        "type": "string",
+                        "enum": ["UserPromptSubmit", "PreToolUse"],
+                    },
+                },
                 "required": ["cwd", "session_id"],
                 "additionalProperties": False,
             },
@@ -100,11 +107,20 @@ def serve(*, stdin: Iterable[str], stdout: TextIO) -> int:
                     args = params.get("arguments")
                     if (
                         not isinstance(args, dict)
-                        or set(args) != {"cwd", "session_id"}
+                        or not {"cwd", "session_id"}.issubset(args)
+                        or not set(args).issubset({"cwd", "session_id", "hook_event_name"})
+                        or (
+                            "hook_event_name" in args
+                            and args["hook_event_name"] not in ("UserPromptSubmit", "PreToolUse")
+                        )
                         or not all(isinstance(v, str) for v in args.values())
                     ):
                         raise RuntimeConfigError("project_binding_arguments_invalid")
                     result = runtime.bind_context(args["cwd"], args["session_id"])
+                    # Native MCP hooks parse the tool text as hook output. A plain
+                    # binding result is valid for direct clients, but not that schema.
+                    if "hook_event_name" in args:
+                        result = {}
                     response = {
                         "jsonrpc": "2.0",
                         "id": request["id"],
