@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-26
+
 ### Fixed
 
 - Recognize the desktop's `additional_content.codex_apps_open_page` transcript
