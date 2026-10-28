@@ -264,7 +264,9 @@ def _parse_turn(
     assistant_parts: list[str] = []
     bridge_receipts: list[dict[str, Any]] = []
     try:
-        lines = transcript_path.read_text(encoding="utf-8").splitlines()
+        # JSONL is LF-delimited. Unicode separators inside JSON strings
+        # are content, even though str.splitlines() treats them as boundaries.
+        lines = transcript_path.read_text(encoding="utf-8").split("\n")
     except OSError as exc:
         raise AdapterError("transcript_unreadable") from exc
     for record in _records(lines):
@@ -335,7 +337,9 @@ def parse_turn(transcript_path: Path, turn_id: str) -> tuple[str, str]:
 def _exchange_records(transcript_path: Path, turn_id: str) -> list[dict[str, Any]]:
     """Project transcript finals onto ordered tty input spans, across turns."""
     try:
-        lines = transcript_path.read_text(encoding="utf-8").splitlines()
+        # JSONL is LF-delimited. Unicode separators inside JSON strings
+        # are content, even though str.splitlines() treats them as boundaries.
+        lines = transcript_path.read_text(encoding="utf-8").split("\n")
     except OSError as exc:
         raise AdapterError("transcript_unreadable") from exc
     current_turn: str | None = None
