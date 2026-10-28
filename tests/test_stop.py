@@ -526,3 +526,54 @@ def test_module_exports_match_spec() -> None:
         "parse_turn",
     }
     assert expected.issubset(set(stop.__all__))
+
+
+@pytest.mark.parametrize("separator", ["\u2028", "\u2029", "\u0085"])
+@pytest.mark.parametrize("reader", ["fallback", "helper"])
+@pytest.mark.parametrize("parser", ["turn", "exchange"])
+def test_jsonl_unicode_separators_are_content_not_record_boundaries(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    separator: str,
+    reader: str,
+    parser: str,
+) -> None:
+    from musubi_codex import stop
+
+    user_text = f"Before{separator}after"
+    assistant_text = f"Answer{separator}preserved"
+    records = [
+        _turn_context("turn-001"),
+        _user_message(user_text),
+        {
+            "type": "response_item",
+            "payload": {
+                "type": "custom_tool_call_output",
+                "output": f"Tool{separator}output",
+            },
+        },
+        _assistant_message(assistant_text),
+    ]
+    transcript = tmp_path / "unicode.jsonl"
+    _write_transcript(transcript, records)
+    # The fixture must contain the literal character, not a JSON escape.
+    assert separator in transcript.read_text(encoding="utf-8")
+    helper_calls = []
+
+    def helper(lines):
+        # Exercise the optional helper's input contract without requiring that
+        # separately distributed package. It must receive four whole records.
+        helper_calls.append(lines)
+        assert [json.loads(line) for line in lines if line] == records
+        return stop._skip_only(lines)
+
+    monkeypatch.setattr(stop, "_iter_records", helper if reader == "helper" else None)
+    if parser == "turn":
+        assert stop.parse_turn(transcript, "turn-001") == (user_text, assistant_text)
+    else:
+        exchanges = stop._exchange_records(transcript, "turn-001")
+        assert len(exchanges) == 1
+        assert "decline_reason" not in exchanges[0]
+        assert exchanges[0]["assistant_text"] == assistant_text
+        assert exchanges[0]["inputs"] == [(records[1]["payload"]["id"], user_text)]
+    assert len(helper_calls) == (1 if reader == "helper" else 0)
