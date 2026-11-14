@@ -13,6 +13,7 @@ import json
 import subprocess
 import sys
 import time
+from collections.abc import Iterable, Iterator
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
@@ -228,14 +229,14 @@ class _SkipMarker:
         self.reason = reason
 
 
-def _records(lines: list[str]) -> Any:
+def _records(lines: Iterable[str]) -> Any:
     """Reassembling reader when available; otherwise today's skip semantics."""
     if _iter_records is not None:
         return _iter_records(lines)
     return _skip_only(lines)
 
 
-def _skip_only(lines: list[str]) -> Any:
+def _skip_only(lines: Iterable[str]) -> Any:
     for idx, line in enumerate(lines, 1):
         if not line.strip():
             continue
@@ -254,6 +255,30 @@ def _skip_only(lines: list[str]) -> Any:
             yield _SkipMarker(idx, "not_a_record")
 
 
+def _transcript_lines(path: Path) -> Iterator[str]:
+    """Stream the same splitlines input without retaining a whole session.
+
+    Keep Unicode line-separator behaviour and feed the existing corruption/
+    reassembly reader unchanged. Errors during iteration retain the old reason.
+    """
+    try:
+        with path.open(encoding="utf-8") as handle:
+            for physical_line in handle:
+                yield from physical_line.splitlines()
+    except OSError as exc:
+        raise AdapterError("transcript_unreadable") from exc
+
+
+def _message_signature(role: str, text: str) -> tuple[str, bytes]:
+    """Keep global message-id collision checks without retaining old text.
+
+    A suffix would lose earlier IDs and interrupted inputs. Scan the existing
+    record stream instead, keeping only a SHA-256 content identity per ID.
+    surrogatepass also handles JSON strings containing unpaired surrogates.
+    """
+    return role, hashlib.sha256(text.encode("utf-8", errors="surrogatepass")).digest()
+
+
 def _parse_turn(
     transcript_path: Path, turn_id: str
 ) -> tuple[str, str, list[dict[str, Any]] | None]:
@@ -263,10 +288,7 @@ def _parse_turn(
     user_parts: list[str] = []
     assistant_parts: list[str] = []
     bridge_receipts: list[dict[str, Any]] = []
-    try:
-        lines = transcript_path.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:
-        raise AdapterError("transcript_unreadable") from exc
+    lines = _transcript_lines(transcript_path)
     for record in _records(lines):
         if not isinstance(record, dict):
             # Corrupt marker from either reader (unparseable, non-record JSON, or
@@ -334,13 +356,10 @@ def parse_turn(transcript_path: Path, turn_id: str) -> tuple[str, str]:
 
 def _exchange_records(transcript_path: Path, turn_id: str) -> list[dict[str, Any]]:
     """Project transcript finals onto ordered tty input spans, across turns."""
-    try:
-        lines = transcript_path.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:
-        raise AdapterError("transcript_unreadable") from exc
+    lines = _transcript_lines(transcript_path)
     current_turn: str | None = None
     pending: list[tuple[str, str]] = []
-    seen_messages: dict[str, tuple[str, str]] = {}
+    seen_messages: dict[str, tuple[str, bytes]] = {}
     exchanges: list[dict[str, Any]] = []
     span_problem: str | None = None
     target_finals = 0
@@ -408,7 +427,7 @@ def _exchange_records(transcript_path: Path, turn_id: str) -> list[dict[str, Any
                 span_problem = str(exc)
                 continue
             text_value = "\n\n".join(parts)
-            signature = (role, text_value)
+            signature = _message_signature(role, text_value)
             if message_id in seen_messages:
                 if seen_messages[message_id] != signature:
                     span_problem = "host_message_id_collision"
@@ -433,7 +452,7 @@ def _exchange_records(transcript_path: Path, turn_id: str) -> list[dict[str, Any
             pending.clear()
             span_problem = None
             continue
-        signature = (role, parts[0])
+        signature = _message_signature(role, parts[0])
         if message_id in seen_messages:
             if seen_messages[message_id] != signature:
                 if current_turn == turn_id:
